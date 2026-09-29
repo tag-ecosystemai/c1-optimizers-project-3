@@ -1,0 +1,49 @@
+name: RunOut ingest
+
+# Scheduled signal ingestion. Runs on GitHub's network
+
+on:
+  schedule:
+    - cron: '15 5 * * *'   # 05:15 UTC daily  -> weather
+    - cron: '30 5 * * *'   # 05:30 UTC daily  -> port_congestion
+    - cron: '0 */6 * * *'  # every 6 hours    -> news
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Which ingester to run
+        type: choice
+        options: [weather, port_congestion, news, ais]
+        default: weather
+
+concurrency:
+  group: ingest-${{ github.event.schedule || inputs.task }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+
+      - name: Pick task from schedule/input
+        id: pick
+        run: |
+          SCHED="${{ github.event.schedule }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            T="${{ inputs.task }}"
+          elif [ "$SCHED" = "15 5 * * *" ]; then T="weather"
+          elif [ "$SCHED" = "30 5 * * *" ]; then T="port_congestion"
+          else T="news"; fi
+          echo "task=$T" >> "$GITHUB_OUTPUT"
+
+      - name: Run ingester
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          AISSTREAM_API_KEY: ${{ secrets.AISSTREAM_API_KEY }}
+        run: python ingestion/${{ steps.pick.outputs.task }}.py

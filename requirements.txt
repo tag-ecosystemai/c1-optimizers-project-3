@@ -1,0 +1,5 @@
+requests
+supabase
+python-dotenv
+websockets
+websocket-client
