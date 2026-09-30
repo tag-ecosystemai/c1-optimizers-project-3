@@ -3,3 +3,10 @@ supabase
 python-dotenv
 websockets
 websocket-client
+
+# M1 model (ml/m1_delay_risk/train.py + score.py)
+scikit-learn
+numpy
+
+# Optional — shap_explain.py falls back to tree importances if absent
+# shap

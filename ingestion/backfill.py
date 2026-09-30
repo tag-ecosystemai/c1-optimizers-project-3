@@ -103,8 +103,19 @@ def backfill_news(sb, start, end):
     end_dt = datetime.strptime(end, "%Y-%m-%d").strftime("%Y%m%d235959")
     spacing = float(os.environ.get("GDELT_SPACING_SECONDS", "15"))
 
-    saved, empty, failed = 0, 0, 0
+    saved, skipped, empty, failed = 0, 0, 0, 0
+    day = datetime.strptime(end, "%Y-%m-%d").date().isoformat()
     for term in terms:
+        # Skip BEFORE calling GDELT: re-runs must only chase the gaps, not
+        # burn a rate-limited request on a term we already stored today.
+        already = (sb.table("signals").select("signal_id")
+                   .eq("signal_type", "news").eq("source", "gdelt-backfill")
+                   .eq("reference_key", term).eq("signal_day", day)
+                   .limit(1).execute().data)
+        if already:
+            skipped += 1
+            continue
+
         params = {
             "query": f'"{term}" {DISRUPTION_CLAUSE}',
             "mode": "artlist", "maxrecords": 250,
@@ -142,7 +153,7 @@ def backfill_news(sb, start, end):
             failed += 1
             print(f"  gave up on '{term}' after retries")
         time.sleep(spacing)
-    print(f"News backfill: saved={saved}, empty={empty}, failed={failed}")
+    print(f"News backfill: saved={saved}, skipped={skipped}, empty={empty}, failed={failed}")
 
 
 # ----------------------------------------------------------------------

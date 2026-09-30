@@ -40,5 +40,5 @@ jobs:
             backfill_news)     python ingestion/backfill.py --news    --start "${{ inputs.start }}" --end "${{ inputs.end }}" ;;
             backfill_portwatch) python ingestion/backfill.py --portwatch ;;
             portwatch_bulk)    python ingestion/portwatch_bulk.py --refresh ;;
-            build_features)    python ml/m1_delay_risk/prepare_route_features.py --weeks 104 ;;
+            build_features)    python ml/build_port_features.py ;;
           esac
