@@ -8,3 +8,5 @@ mlruns/
 docs/
 db/
 FMCG Disruption Agent.docx
+# Browser-test screenshots
+.playwright-mcp/
