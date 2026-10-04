@@ -31,18 +31,30 @@ SHIPPING_MODE_ENCODING = {
 PEAK_MONTHS = {10, 11, 12}
 BATCH_SIZE = 1000
 
+def load_all_orders(sb):
+    all_orders = []
+    page_size = 1000
+    start = 0
+    while True:
+        batch = sb.table("orders").select(
+            "order_id,distributor_id,product_id,warehouse_id,"
+            "days_for_shipping_real,days_for_shipment_scheduled,"
+            "late_delivery_risk,order_date,shipping_mode,"
+            "order_item_quantity,order_item_total,order_region,profit_ratio"
+        ).range(start, start + page_size - 1).execute().data
+        if not batch:
+            break
+        all_orders.extend(batch)
+        start += page_size
+        print(f"  ... loaded {len(all_orders):,} so far")
+    return all_orders
 
 def build_features():
     sb = get_client()
 
     print("Loading orders...")
     # Fetch orders with joins
-    orders = sb.table("orders").select(
-        "order_id,distributor_id,product_id,warehouse_id,"
-        "days_for_shipping_real,days_for_shipment_scheduled,"
-        "late_delivery_risk,order_date,shipping_mode,"
-        "order_item_quantity,order_item_total,order_region,profit_ratio"
-    ).execute().data
+    orders = load_all_orders(sb)
     print(f"  {len(orders):,} orders loaded")
 
     # Also load distributor segments and product categories
