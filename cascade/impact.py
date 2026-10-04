@@ -1,47 +1,37 @@
 """
-RunOut — Cascade / Impact Engine (Layer 4)
+RunOut v2 — Cascade / Impact Engine (DataCo)
 Location: cascade/impact.py
 
-M1 answers "how many days late will this route be?" — a number that means
-nothing on its own. The cascade turns that into the question the business
-actually asks: does the delay cause a STOCKOUT, and how much MONEY is exposed?
+Reads M1 predictions + warehouse inventory + M2 usage forecasts,
+computes stockout risk and money-at-risk per order.
 
-Pure arithmetic — no external data, no model needed to run:
+Logic:
+  days_of_cover = stock_on_hand / distributor_weekly_usage
+  stockout_date = inventory.as_of_date + days_of_cover
+  projected_arrival = order.shipping_date + predicted_delay_days
+  if projected_arrival > stockout_date:
+      gap_days, units_short, money_at_risk = gap * usage * unit_margin
 
-    days_of_cover     = stock_on_hand / daily_usage_rate
-    stockout_date     = inventory.as_of_date + days_of_cover
-    projected_arrival = planned_arrival + delay_days
-    if projected_arrival > stockout_date:
-        gap_days      = projected_arrival - stockout_date
-        units_short   = gap_days * daily_usage_rate
-        money_at_risk = units_short * unit_margin_usd
-
-delay_days comes from the `predictions` table (written by
-ml/build_port_features.py and ml/generate_delay_label.py). Until the model is trained, pass
---assumed-delay-days to exercise the pipeline with a stub value.
-
-Two inputs meet here: M1 sets the TIMING (when goods arrive), M2 sets the
-MAGNITUDE (how fast stock burns, via inventory.daily_usage_rate).
-
-Writes rows to `cascade_results` (idempotent per shipment+as_of_date).
-
-Usage (from repo root):
-    python cascade/impact.py                         # use predictions
-    python cascade/impact.py --assumed-delay-days 60
-    python cascade/impact.py --live-only --refresh --top 10
+Usage:
+    python cascade/impact.py
+    python cascade/impact.py --refresh  (recompute all)
+    python cascade/impact.py --assumed-delay-days 7  (stub without M1)
 """
 
 import os
 import sys
 import argparse
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
+from collections import defaultdict
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "ingestion"))
-from common.client import get_client  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from ingestion.common.client import get_client
 
-DEFAULT_USAGE = 500.0        # mirrors db/seed_inventory.py fallback
-DEFAULT_MARGIN_USD = 5.0     # used when products.unit_margin_usd is NULL
-RISK_BANDS = ((10_000, "LOW"), (50_000, "MEDIUM"), (float("inf"), "HIGH"))
+DEFAULT_USAGE = 50.0
+DEFAULT_MARGIN = 5.0
+DEFAULT_ASSUMED_DELAY = 5.0
+
+RISK_BANDS = ((100, "LOW"), (500, "MEDIUM"), (float("inf"), "HIGH"))
 
 
 def band(money):
@@ -51,149 +41,163 @@ def band(money):
     return "HIGH"
 
 
-def _as_date(v):
-    return date.fromisoformat(v) if isinstance(v, str) else v
-
-
-def load_predictions(sb):
-    """shipment_id -> predicted_delay_days (newest as_of_date wins)."""
-    out = {}
-    for r in sb.table("predictions").select(
-        "shipment_id,predicted_delay_days,as_of_date"
-    ).execute().data or []:
-        sid = r.get("shipment_id")
-        if sid is None:
-            continue
-        cur = out.get(sid)
-        if cur is None or (r.get("as_of_date") or "") >= (cur.get("as_of_date") or ""):
-            out[sid] = r
-    return {sid: r["predicted_delay_days"] for sid, r in out.items()}
-
-
-def load_inventory(sb):
-    """(product_id, depot_id) -> inventory row."""
-    out = {}
-    for r in sb.table("inventory").select(
-        "product_id,depot_id,stock_on_hand,daily_usage_rate,as_of_date"
-    ).execute().data or []:
-        out[(r.get("product_id"), r.get("depot_id"))] = r
-    return out
-
-
-def load_margins(sb):
-    return {p["product_id"]: p.get("unit_margin_usd")
-            for p in sb.table("products").select(
-                "product_id,unit_margin_usd").execute().data or []}
-
-
-def compute(planned_arrival, inv_row, margin, delay_days, default_margin):
-    """Return {days_of_cover, stockout_date, units_short, money_at_risk} or None."""
-    planned = _as_date(planned_arrival)
-    if not planned:
-        return None
-
-    usage = float(inv_row.get("daily_usage_rate") or DEFAULT_USAGE) or DEFAULT_USAGE
-    stock = float(inv_row.get("stock_on_hand") or 0)
-    inv_date = _as_date(inv_row.get("as_of_date")) or date.today()
-
-    days_of_cover = stock / usage
-    stockout = inv_date + timedelta(days=days_of_cover)
-    arrival = planned + timedelta(days=delay_days)
-
-    if arrival <= stockout:
-        return {"days_of_cover": round(days_of_cover, 2),
-                "stockout_date": stockout, "units_short": 0, "money_at_risk": 0.0}
-
-    gap_days = (arrival - stockout).days
-    units_short = int(round(gap_days * usage))
-    m = float(margin) if margin is not None else float(default_margin)
-    return {"days_of_cover": round(days_of_cover, 2), "stockout_date": stockout,
-            "units_short": units_short, "money_at_risk": round(units_short * m, 2)}
-
-
-def run(assumed_delay, live_only, refresh, top, default_margin):
+def run():
     sb = get_client()
-    ref = date.today()
+    refresh = FLAGS.refresh
+    assumed_delay = FLAGS.assumed_delay_days
+    default_margin = FLAGS.default_margin_usd
 
-    q = sb.table("shipments").select(
-        "shipment_id,product_id,depot_id,planned_arrival,status")
-    if live_only:
-        q = q.in_("status", ["in_transit", "delayed", "at_risk"])
-    shipments = q.execute().data or []
+    print("=" * 60)
+    print("RunOut Cascade — Impact Engine")
+    print("=" * 60)
 
-    preds, inv, margins = load_predictions(sb), load_inventory(sb), load_margins(sb)
-
-    if refresh:
-        sb.table("cascade_results").delete().eq(
-            "as_of_date", ref.isoformat()).execute()
-        existing = set()
+    # 1. Load predictions or use assumed delay
+    if assumed_delay > 0:
+        print(f"\nUsing assumed delay: {assumed_delay} days (M1 not yet trained)")
+        predictions = defaultdict(lambda: assumed_delay)
     else:
-        existing = {r["shipment_id"] for r in sb.table("cascade_results")
-                    .select("shipment_id").eq("as_of_date", ref.isoformat())
-                    .execute().data or []}
+        print("\nLoading M1 predictions...")
+        preds = sb.table("predictions").select(
+            "order_id,predicted_delay_days"
+        ).order("scored_at", desc=True).execute().data
+        predictions = {}
+        for p in preds:
+            oid = p["order_id"]
+            if oid not in predictions:
+                predictions[oid] = p["predicted_delay_days"]
+        print(f"  {len(predictions):,} predictions loaded")
 
-    results, written, skipped = [], 0, 0
-    for s in shipments:
-        inv_row = inv.get((s.get("product_id"), s.get("depot_id")))
-        if not inv_row:
-            continue  # nothing in stock for this product/depot -> nothing to cascade
+    if not predictions:
+        print("No predictions. Pass --assumed-delay-days N to use stub.")
+        return
 
-        delay_days = preds.get(s["shipment_id"])
-        if delay_days is None:
-            delay_days = assumed_delay
-            source = "assumed"
+    # 2. Load orders with delay predictions
+    order_ids = list(predictions.keys())
+    order_data = {}
+    for i in range(0, len(order_ids), 100):
+        batch = order_ids[i:i + 100]
+        orders = (sb.table("orders")
+                  .select("order_id,distributor_id,product_id,warehouse_id,"
+                          "shipping_date,order_item_quantity,benefit_per_order")
+                  .in_("order_id", batch)
+                  .execute().data)
+        for o in orders:
+            order_data[o["order_id"]] = o
+    print(f"  {len(order_data):,} orders matched")
+
+    # 3. Load inventory per (warehouse, product)
+    inventory = {}
+    inv_rows = sb.table("warehouse_inventory").select(
+        "warehouse_id,product_id,stock_on_hand,as_of_date"
+    ).execute().data
+    for i in inv_rows:
+        inv_key = (i["warehouse_id"], i["product_id"])
+        if inv_key not in inventory or i["as_of_date"] > inventory[inv_key]["as_of_date"]:
+            inventory[inv_key] = i
+    print(f"  {len(inventory):,} inventory records")
+
+    # 4. Load M2 usage forecast per distributor per product
+    usage = {}
+    usage_rows = sb.table("distributor_usage").select(
+        "distributor_id,product_id,label_next_week_qty,period_start"
+    ).order("period_start", desc=True).execute().data
+    for u in usage_rows:
+        key = (u["distributor_id"], u["product_id"])
+        if key not in usage:
+            usage[key] = u["label_next_week_qty"] or DEFAULT_USAGE
+    print(f"  {len(usage):,} usage forecasts")
+
+    # 5. Compute cascade
+    results = []
+    today = date.today()
+
+    for oid, delay_days in predictions.items():
+        o = order_data.get(oid)
+        if not o:
+            continue
+
+        wid = o.get("warehouse_id")
+        pid = o.get("product_id")
+        did = o.get("distributor_id")
+        inv_key = (wid, pid)
+        usage_key = (did, pid)
+        inv = inventory.get(inv_key)
+
+        if not inv:
+            continue
+
+        stock = float(inv["stock_on_hand"])
+        inv_date = date.fromisoformat(str(inv["as_of_date"])[:10]) if isinstance(inv["as_of_date"], str) else inv["as_of_date"]
+        daily_usage = float(usage.get(usage_key, DEFAULT_USAGE))
+
+        days_of_cover = stock / daily_usage if daily_usage > 0 else 999
+        stockout = inv_date + timedelta(days=int(days_of_cover))
+
+        # Projected arrival = shipping_date + delay
+        ship_str = o.get("shipping_date")
+        if ship_str:
+            ship_date = date.fromisoformat(str(ship_str)[:10]) if isinstance(ship_str, str) else ship_str
+            arrival = ship_date + timedelta(days=int(delay_days))
         else:
-            source = "prediction"
+            arrival = today + timedelta(days=int(delay_days))
 
-        c = compute(s.get("planned_arrival"), inv_row,
-                    margins.get(s.get("product_id")), delay_days, default_margin)
-        if c is None:
-            continue
+        if arrival <= stockout:
+            units_short = 0
+            money_at_risk = 0.0
+        else:
+            gap = (arrival - stockout).days
+            units_short = int(gap * daily_usage)
+            margin = float(o.get("benefit_per_order") or default_margin)
+            money_at_risk = round(units_short * margin, 2)
 
-        results.append({"shipment_id": s["shipment_id"], "delay_days": delay_days,
-                        "source": source, **c})
+        results.append({
+            "order_id": oid,
+            "distributor_id": did,
+            "product_id": pid,
+            "warehouse_id": wid,
+            "days_of_cover": round(days_of_cover, 2),
+            "stockout_date": stockout.isoformat(),
+            "units_short": units_short,
+            "money_at_risk_usd": money_at_risk,
+        })
 
-        if s["shipment_id"] in existing:
-            skipped += 1
-            continue
-        sb.table("cascade_results").insert({
-            "shipment_id": s["shipment_id"],
-            "days_of_cover": c["days_of_cover"],
-            "stockout_date": c["stockout_date"].isoformat(),
-            "units_short": c["units_short"],
-            "money_at_risk_usd": c["money_at_risk"],
-            "as_of_date": ref.isoformat(),
-        }).execute()
-        written += 1
+    # 6. Write results
+    if refresh:
+        sb.table("cascade_results").delete().neq("cascade_id", 0).execute()
 
-    results.sort(key=lambda r: r["money_at_risk"], reverse=True)
-    total = sum(r["money_at_risk"] for r in results)
-    flagged = sum(1 for r in results if r["money_at_risk"] > 0)
+    batch_size = 500
+    for i in range(0, len(results), batch_size):
+        batch = results[i:i + batch_size]
+        for r in batch:
+            r["as_of_date"] = today.isoformat()
+        sb.table("cascade_results").insert(batch).execute()
 
-    print(f"Cascade @ {ref} — candidates: {len(results)}, flagged: {flagged}, "
-          f"written: {written}, skipped: {skipped}")
-    print(f"Total money at risk: ${total:,.0f}\n")
-    print(f"Top {top} exposures:")
-    print(f"  {'ship':>6}  {'delay_d':>7}  {'cover_d':>7}  {'stockout':>10}  "
-          f"{'units':>9}  {'$ at risk':>12}  band")
-    for r in results[:top]:
-        print(f"  {r['shipment_id']:>6}  {r['delay_days']:>7}  {r['days_of_cover']:>7}  "
-              f"{r['stockout_date'].isoformat():>10}  {r['units_short']:>9,}  "
-              f"{r['money_at_risk']:>12,.0f}  {band(r['money_at_risk'])}")
+    print(f"\nResults: {len(results):,} computed, written to cascade_results")
 
-    print("\nCAVEATS: inventory values are ASSUMED (db/seed_inventory.py); product "
-          f"margins default to ${default_margin:,.0f} where unset.")
+    # 7. Print top exposures
+    results.sort(key=lambda x: x["money_at_risk_usd"], reverse=True)
+    print(f"\n{'='*60}")
+    print(f"Top {FLAGS.top} exposures:")
+    print(f"{'Order':<10} {'Stockout':<14} {'Cover':<8} {'Short':<8} {'$ Risk':<12} {'Band':<8}")
+    print(f"{'-'*10} {'-'*14} {'-'*8} {'-'*8} {'-'*12} {'-'*8}")
+    for r in results[:FLAGS.top]:
+        print(f"{r['order_id']:<10} {r['stockout_date']:<14} "
+              f"{r['days_of_cover']:<8.1f} {r['units_short']:<8} "
+              f"${r['money_at_risk_usd']:<10,.2f} {band(r['money_at_risk_usd']):<8}")
+
+    print(f"\nNOTE: Inventory values are simulated from historical DataCo orders.")
+    print(f"      Margins default to ${default_margin} where benefit_per_order is unset.")
 
 
 if __name__ == "__main__":
-    p = argparse.ArgumentParser()
-    p.add_argument("--assumed-delay-days", type=float, default=0.0,
-                   help="Fallback delay when a shipment has no prediction")
-    p.add_argument("--live-only", action="store_true",
-                   help="Only in-flight shipments (default: all with inventory)")
-    p.add_argument("--refresh", action="store_true",
-                   help="Delete today's cascade_results rows first")
-    p.add_argument("--default-margin-usd", type=float, default=DEFAULT_MARGIN_USD)
-    p.add_argument("--top", type=int, default=10)
-    a = p.parse_args()
-    run(a.assumed_delay_days, a.live_only, a.refresh, a.top, a.default_margin_usd)
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--assumed-delay-days", type=float, default=0.0,
+                    help="stub delay in days (use when M1 not yet trained)")
+    ap.add_argument("--refresh", action="store_true",
+                    help="recompute all cascade results")
+    ap.add_argument("--default-margin-usd", type=float, default=5.0,
+                    help="fallback margin per unit")
+    ap.add_argument("--top", type=int, default=10,
+                    help="number of top exposures to print")
+    FLAGS = ap.parse_args()
+    run()

@@ -1,12 +1,17 @@
 requests
 supabase
 python-dotenv
-websockets
-websocket-client
-
-# M1 model (ml/m1_delay_risk/train.py + score.py)
-scikit-learn
+pandas
 numpy
+scikit-learn
 
-# Optional — shap_explain.py falls back to tree importances if absent
-# shap
+# MLflow / DagsHub
+dagshub
+mlflow
+
+# Optional — for faster training
+xgboost
+
+# Agent orchestration
+langgraph
+langfuse
