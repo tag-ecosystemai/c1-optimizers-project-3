@@ -7,16 +7,17 @@ order quantity. Uses lagged quantities, rolling averages, calendar.
 
 Target: label_next_week_qty (real — from historical DataCo data).
 
+MLflow/DagsHub logging is required, not optional — if it can't
+initialize, the script fails loudly rather than training silently
+without a logged record.
+
 Usage:
     python ml/m2_consumption/train.py
-    python ml/m2_consumption/train.py --no-mlflow
 """
 
 import os
 import sys
 import pickle
-import argparse
-import numpy as np
 import pandas as pd
 
 from sklearn.linear_model import LinearRegression
@@ -29,14 +30,11 @@ try:
 except ImportError:
     XGB_AVAILABLE = False
 
-try:
-    import dagshub
-    dagshub.init(repo_owner='RunOut', repo_name='runout-ml', mlflow=True)
-    import mlflow
-    import mlflow.sklearn
-    MLFLOW_AVAILABLE = True
-except ImportError:
-    MLFLOW_AVAILABLE = False
+import dagshub
+dagshub.init(repo_owner='RunOut', repo_name='runout-ml', mlflow=True)
+import mlflow
+import mlflow.sklearn
+print("MLflow/DagsHub initialized successfully.")
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 from ingestion.common.client import get_client
@@ -56,17 +54,10 @@ def get_models():
     return models
 
 
-def run():
-    use_mlflow = MLFLOW_AVAILABLE and not FLAGS.no_mlflow
-    if use_mlflow:
-        mlflow.set_experiment("m2-distributor-forecast-dataco")
-
-    sb = get_client()
-
-    print("Loading distributor_usage...")
+def load_all_usage_rows(sb):
     all_rows = []
     start = 0
-    batch_size = 10000
+    batch_size = 1000   # Supabase caps each request at 1,000 rows regardless of what's requested
     while True:
         batch = (sb.table("distributor_usage")
                  .select("*")
@@ -78,13 +69,26 @@ def run():
         all_rows.extend(batch)
         start += batch_size
         print(f"  fetched {len(batch):,} rows (total {len(all_rows):,})")
+    return all_rows
 
+
+def run():
+    mlflow.set_experiment("m2-distributor-forecast-dataco")
+
+    sb = get_client()
+
+    print("Loading distributor_usage...")
+    all_rows = load_all_usage_rows(sb)
     df = pd.DataFrame(all_rows)
     print(f"Total: {len(df):,} rows")
 
-    # Filter to rows with valid target
-    df = df.dropna(subset=[TARGET] + FEATURE_COLUMNS)
-    print(f"With valid features + target: {len(df):,} rows")
+    # Fill lag/rolling features with this row's own quantity when not
+    # enough history exists yet, rather than discarding the row entirely
+    df["qty_lag_1w"] = df["qty_lag_1w"].fillna(df["order_quantity"])
+    df["qty_lag_4w"] = df["qty_lag_4w"].fillna(df["order_quantity"])
+    df["qty_ma_4w"] = df["qty_ma_4w"].fillna(df["order_quantity"])
+    df = df.dropna(subset=[TARGET])
+    print(f"With valid target: {len(df):,} rows")
 
     # Time-based split (80/20 by period_start)
     sorted_dates = sorted(df["period_start"].unique())
@@ -112,15 +116,25 @@ def run():
         mae = mean_absolute_error(y_test, preds)
         print(f"  MAE={mae:.3f}")
 
-        if use_mlflow:
-            with mlflow.start_run(run_name=f"m2-{name}") as run:
-                mlflow.log_param("algorithm", name)
-                mlflow.log_param("feature_count", len(FEATURE_COLUMNS))
-                mlflow.log_metric("mae", mae)
-                if hasattr(model, "feature_importances_"):
-                    for f, imp in zip(FEATURE_COLUMNS, model.feature_importances_):
-                        mlflow.log_metric(f"importance_{f}", imp)
-                mlflow.sklearn.log_model(model, "model")
+        with mlflow.start_run(run_name=f"m2-{name}") as run:
+            mlflow.log_param("algorithm", name)
+            mlflow.log_param("feature_count", len(FEATURE_COLUMNS))
+            mlflow.log_param("train_rows", len(train))
+            mlflow.log_param("test_rows", len(test))
+            mlflow.log_metric("mae", mae)
+            if hasattr(model, "feature_importances_"):
+                for f, imp in zip(FEATURE_COLUMNS, model.feature_importances_):
+                    mlflow.log_metric(f"importance_{f}", imp)
+            mlflow.sklearn.log_model(
+                model,
+                "model",
+                skops_trusted_types=[
+                    "sklearn.tree._tree.Tree",
+                    "xgboost.core.Booster",
+                    "xgboost.sklearn.XGBRegressor",
+                ],
+            )
+            print(f"  Logged to MLflow run: {run.info.run_id}")
 
         if mae < best_mae:
             best_mae = mae
@@ -134,13 +148,8 @@ def run():
     with open(os.path.join(artifact_dir, "model_by_distributor.pkl"), "wb") as f:
         pickle.dump({"regressor": best_model, "feature_names": FEATURE_COLUMNS}, f)
     print(f"Saved to {artifact_dir}/model_by_distributor.pkl")
-
-    if use_mlflow:
-        print(f"See runs at: https://dagshub.com/RunOut/runout-ml")
+    print("See runs at: https://dagshub.com/RunOut/runout-ml/experiments")
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--no-mlflow", action="store_true")
-    FLAGS = ap.parse_args()
     run()

@@ -29,13 +29,29 @@ def monday_of(d):
     return d - timedelta(days=d.weekday())
 
 
+def load_all_orders(sb):
+    """Supabase caps a single select() at 1,000 rows by default —
+    this pages through until everything is loaded."""
+    all_orders = []
+    page_size = 1000
+    start = 0
+    while True:
+        batch = sb.table("orders").select(
+            "order_id,distributor_id,product_id,order_date,order_item_quantity"
+        ).range(start, start + page_size - 1).execute().data
+        if not batch:
+            break
+        all_orders.extend(batch)
+        start += page_size
+        print(f"  ... loaded {len(all_orders):,} so far")
+    return all_orders
+
+
 def build_features():
     sb = get_client()
 
     print("Loading orders...")
-    orders = sb.table("orders").select(
-        "order_id,distributor_id,product_id,order_date,order_item_quantity"
-    ).execute().data
+    orders = load_all_orders(sb)
     print(f"  {len(orders):,} orders loaded")
 
     # Group by (distributor_id, product_id, ISO week) -> total quantity
