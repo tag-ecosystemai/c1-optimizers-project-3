@@ -1,0 +1,7 @@
+[
+  {"question": "What does the MSC bill of lading say about demurrage and detention?", "expected_sources": ["msc"]},
+  {"question": "What are Expeditors' terms regarding liability for delay?", "expected_sources": ["expeditors"]},
+  {"question": "What entry documents are required to import goods into the US?", "expected_sources": ["cbp"]},
+  {"question": "What FMC rules apply to detention and demurrage billing?", "expected_sources": ["fmc"]},
+  {"question": "Kuehne+Nagel standard trading conditions on force majeure", "expected_sources": ["kuehne", "kn"]}
+]
