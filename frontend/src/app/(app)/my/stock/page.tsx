@@ -9,6 +9,19 @@ import { date, days, num, relativeToAsOf } from "@/lib/format";
 
 export const metadata: Metadata = { title: "My stock" };
 
+/** Weekly order quantities as a tiny line; the label carries the numbers. */
+function Sparkline({ values }: { values: number[] }) {
+  if (values.length < 2) return <span className="text-muted">—</span>;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const pts = values.map((v, i) => `${(i / (values.length - 1)) * 80},${22 - ((v - min) / (max - min || 1)) * 20}`).join(" ");
+  return (
+    <svg viewBox="0 0 80 24" className="h-6 w-20" role="img" aria-label={`Last ${values.length} weeks: ${num(min)} to ${num(max)} units a week, latest ${num(values[values.length - 1])}`}>
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-blue-500" />
+    </svg>
+  );
+}
+
 export default async function Page() {
   const [rows, asOf] = await Promise.all([getMyStock(), asOfDate()]);
 
@@ -23,6 +36,7 @@ export default async function Page() {
         </span>
       ),
     },
+    { key: "history", header: "Recent weeks", hideBelow: "md", cell: (r) => <Sparkline values={r.weekly_history ?? []} /> },
     { key: "usage", header: "Weekly usage (forecast)", align: "right", hideBelow: "sm", cell: (r) => `${num(Math.round(r.weekly_usage_forecast))} units` },
     {
       key: "cover",

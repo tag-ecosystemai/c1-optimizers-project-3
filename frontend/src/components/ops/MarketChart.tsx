@@ -19,7 +19,7 @@ export function MarketChart({ data }: { data: OpsSummary["by_market"] }) {
               formatter={(v) => [usd(Number(v)), "At risk"]}
               contentStyle={{ fontSize: 12, borderRadius: 10, borderColor: "var(--color-line-subtle)" }}
             />
-            <Bar dataKey="money_at_risk_usd" fill="var(--color-risk-high)" radius={[0, 4, 4, 0]} barSize={18} />
+            <Bar dataKey="money_at_risk_usd" fill="var(--color-risk-high)" radius={[0, 4, 4, 0]} barSize={18} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       </div>

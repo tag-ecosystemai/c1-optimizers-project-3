@@ -221,7 +221,7 @@ export function AskPanel({
                           ✓
                         </span>
                       ) : t.status === "streaming" ? (
-                        <span className="size-3 animate-spin rounded-full border-[1.5px] border-muted border-t-transparent" aria-label="running" />
+                        <span className="size-3 animate-spin rounded-full motion-reduce:animate-none border-[1.5px] border-muted border-t-transparent" aria-label="running" />
                       ) : (
                         <span className="text-muted" aria-label="not finished">
                           –
@@ -238,7 +238,7 @@ export function AskPanel({
               {t.text && (
                 <p className="text-[15px] leading-relaxed whitespace-pre-wrap text-fg">
                   {t.text}
-                  {t.status === "streaming" && <span className="ml-0.5 inline-block h-4 w-[7px] translate-y-0.5 animate-pulse bg-fg/60" />}
+                  {t.status === "streaming" && <span className="ml-0.5 inline-block h-4 w-[7px] translate-y-0.5 animate-pulse bg-fg/60 motion-reduce:animate-none" />}
                 </p>
               )}
 

@@ -38,7 +38,7 @@ const columns: Column<IncidentListItem>[] = [
   { key: "distributor", header: "Distributor", cell: (r) => r.distributor.name, hideBelow: "md" },
   { key: "product", header: "Product", cell: (r) => <span className="line-clamp-1 max-w-56">{r.product.name}</span>, hideBelow: "lg" },
   { key: "market", header: "Market", cell: (r) => r.market, hideBelow: "md" },
-  { key: "delay", header: "Delay", sortKey: "predicted_delay_days", align: "right", cell: (r) => days(r.predicted_delay_days), hideBelow: "sm" },
+  { key: "delay", header: "Delay", sortKey: "predicted_delay_days", align: "right", cell: (r) => <span className="whitespace-nowrap">{days(r.predicted_delay_days)}</span>, hideBelow: "sm" },
   { key: "stockout", header: "Stockout", sortKey: "stockout_date", cell: (r) => <span className="whitespace-nowrap">{date(r.stockout_date)}</span>, hideBelow: "lg" },
   { key: "short", header: "Units short", sortKey: "units_short", align: "right", cell: (r) => num(r.units_short), hideBelow: "lg" },
   { key: "money", header: "$ at risk", sortKey: "money_at_risk_usd", align: "right", cell: (r) => (r.money_at_risk_usd === undefined ? "—" : usd(r.money_at_risk_usd)) },
@@ -53,6 +53,34 @@ const columns: Column<IncidentListItem>[] = [
     ),
   },
 ];
+
+const panel = "rounded-xl border border-line-subtle p-4";
+
+/** Daily counts as bars; each bar's date and count are in its label and tooltip, so it isn't colour-only. */
+function TrendBars({ trend }: { trend: { date: string; opened: number }[] }) {
+  const max = Math.max(1, ...trend.map((t) => t.opened));
+  return (
+    <>
+      <ul className="flex h-20 items-end gap-1">
+        {trend.map((t) => (
+          <li
+            key={t.date}
+            title={`${date(t.date)}: ${num(t.opened)} opened`}
+            aria-label={`${date(t.date)}: ${num(t.opened)} opened`}
+            className="flex-1 rounded-sm bg-blue-500"
+            style={{ height: t.opened ? `${(t.opened / max) * 100}%` : "2px", opacity: t.opened ? 1 : 0.25 }}
+          />
+        ))}
+      </ul>
+      {trend.length > 0 && (
+        <div className="mt-1.5 flex justify-between text-[11px] text-muted">
+          <span>{date(trend[0].date)}</span>
+          <span>{date(trend[trend.length - 1].date)}</span>
+        </div>
+      )}
+    </>
+  );
+}
 
 export default async function Page({ searchParams }: PageProps<"/ops/watchtower">) {
   const sp = await searchParams;
@@ -128,16 +156,54 @@ export default async function Page({ searchParams }: PageProps<"/ops/watchtower"
           {page.items.length > 0 && <Pagination nextCursor={page.next_cursor} prevCursor={page.prev_cursor} count={page.items.length} total={page.total} />}
         </section>
 
-        <section aria-labelledby="market-title" className="rounded-xl border border-line-subtle p-4">
-          <h2 id="market-title" className="mb-3 text-base text-fg">
-            $ at risk by market
-          </h2>
-          {summary.by_market.some((m) => m.money_at_risk_usd > 0) ? (
-            <MarketChart data={summary.by_market} />
-          ) : (
-            <EmptyState title="Nothing at risk" description="No open incidents in any market." />
-          )}
-        </section>
+        <div className="flex min-w-0 flex-col gap-6 md:max-2xl:grid md:max-2xl:grid-cols-3 md:max-2xl:items-start">
+          <section aria-labelledby="market-title" className={panel}>
+            <h2 id="market-title" className="mb-3 text-base text-fg">
+              $ at risk by market
+            </h2>
+            {summary.by_market.some((m) => m.money_at_risk_usd > 0) ? (
+              <MarketChart data={summary.by_market} />
+            ) : (
+              <EmptyState title="Nothing at risk" description="No open incidents in any market." />
+            )}
+          </section>
+
+          <section aria-labelledby="products-title" className={panel}>
+            <h2 id="products-title" className="mb-3 text-base text-fg">
+              Top 5 products at risk
+            </h2>
+            {summary.top_products.length ? (
+              <ol className="flex flex-col gap-2.5 text-sm">
+                {summary.top_products.slice(0, 5).map((p, i) => (
+                  <li key={p.product.id} className="flex items-baseline gap-2">
+                    <span className="w-4 shrink-0 text-xs text-muted tabular-nums">{i + 1}</span>
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-fg" title={p.product.name}>
+                        {p.product.name}
+                      </span>
+                      <span className="text-xs text-muted">
+                        {num(p.open_incidents)} open {p.open_incidents === 1 ? "incident" : "incidents"}
+                      </span>
+                    </span>
+                    <span className="text-fg tabular-nums">{usd(p.money_at_risk_usd)}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <EmptyState title="Nothing at risk" description="No product has an open incident." />
+            )}
+          </section>
+
+          <section aria-labelledby="trend-title" className={panel}>
+            <h2 id="trend-title" className="mb-1 text-base text-fg">
+              Incidents opened per day
+            </h2>
+            <p className="mb-3 text-xs text-muted">
+              {num(summary.trend.reduce((n, t) => n + t.opened, 0))} in the last {summary.trend.length} days
+            </p>
+            <TrendBars trend={summary.trend} />
+          </section>
+        </div>
       </div>
     </>
   );

@@ -17,7 +17,7 @@ export interface Column<T> {
 }
 
 const hide = { sm: "max-sm:hidden", md: "max-md:hidden", lg: "max-lg:hidden" };
-const th = "sticky top-0 z-10 border-b border-line-subtle bg-surface px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap text-muted";
+const th = "sticky top-0 z-10 border-b border-line-subtle bg-surface px-3 py-2.5 text-left max-sm:px-2 text-xs font-medium whitespace-nowrap text-muted";
 
 /**
  * Table for every list screen. Works in Server and Client Components (sorting goes through the URL).
@@ -85,7 +85,7 @@ export function DataTable<T>({
                 {columns.map((c, i) => (
                   <td
                     key={c.key}
-                    className={`border-t border-line-faint px-3 py-2.5 align-middle text-fg-2 group-first:border-t-0 ${c.align === "right" ? "text-right tabular-nums" : ""} ${
+                    className={`border-t border-line-faint px-3 py-2.5 align-middle max-sm:px-2 text-fg-2 group-first:border-t-0 ${c.align === "right" ? "text-right tabular-nums" : ""} ${
                       c.hideBelow ? hide[c.hideBelow] : ""
                     } ${c.className ?? ""}`}
                   >
