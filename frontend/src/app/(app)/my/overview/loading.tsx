@@ -1,4 +1,4 @@
-import { PageSkeleton } from "@/components/distributor/PageSkeleton";
+import { PageSkeleton } from "@/components/app/PageSkeleton";
 
 export default function Loading() {
   return <PageSkeleton kpis />;

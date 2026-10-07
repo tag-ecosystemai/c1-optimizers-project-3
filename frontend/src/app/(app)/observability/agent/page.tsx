@@ -7,7 +7,11 @@ import { KpiCard } from "@/components/app/KpiCard";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Skeleton } from "@/components/app/Skeleton";
 import { ToolCallChart } from "@/components/observability/Charts";
-import { card, ExternalLink, LoadError, load, Section, StatusTag } from "@/components/observability/shared";
+import { load } from "@/lib/load";
+import { LoadError } from "@/components/app/LoadError";
+import { ExternalLink } from "@/components/app/ExternalLink";
+import { PANEL, Section } from "@/components/app/Panel";
+import { StatusTag } from "@/components/observability/shared";
 import { requireSession } from "@/lib/auth/session";
 import { canAccess } from "@/lib/auth/routes";
 import { getAgentStats } from "@/lib/data";
@@ -77,7 +81,7 @@ async function Agent() {
       </Section>
 
       <Section title="Tool calls" description={`${num(toolTotal)} calls across ${num(s.runs)} runs.`}>
-        <div className={card}>
+        <div className={PANEL}>
           {tools.length ? (
             <>
               <ToolCallChart data={tools} />

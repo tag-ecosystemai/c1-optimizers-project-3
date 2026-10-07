@@ -1,12 +1,12 @@
+import { load } from "@/lib/load";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { unstable_rethrow } from "next/navigation";
-import type { InventoryRow, Page, WarehouseOverview } from "@/types/api";
+import type { Page } from "@/types/api";
 import { getWarehouseOverview, listWarehouseInventory } from "@/lib/data";
 import { days, num, usd } from "@/lib/format";
 import { EmptyState } from "@/components/app/EmptyState";
-import { ErrorState } from "@/components/app/ErrorState";
+import { LoadError } from "@/components/app/LoadError";
 import { KpiCard } from "@/components/app/KpiCard";
 import { PageHeader } from "@/components/app/PageHeader";
 import { SeverityBadge } from "@/components/app/SeverityBadge";
@@ -54,13 +54,8 @@ function OverviewSkeleton() {
 }
 
 async function Overview() {
-  let data: WarehouseOverview;
-  try {
-    data = await getWarehouseOverview();
-  } catch (e) {
-    unstable_rethrow(e);
-    return <ErrorState message="We couldn't load your warehouse overview. Try again in a moment." />;
-  }
+  const data = await load(getWarehouseOverview);
+  if (!data) return <LoadError what="your warehouse overview" />;
   const { kpis, distributors, warehouse } = data;
   return (
     <>
@@ -106,13 +101,8 @@ async function Overview() {
 }
 
 async function LowestCover() {
-  let page: Page<InventoryRow>;
-  try {
-    page = await listWarehouseInventory({ sort: "days_of_cover", limit: 5 });
-  } catch (e) {
-    unstable_rethrow(e);
-    return <ErrorState message="We couldn't load inventory. Try again in a moment." />;
-  }
+  const page = await load(() => listWarehouseInventory({ sort: "days_of_cover", limit: 5 }));
+  if (!page) return <LoadError what="inventory" />;
   if (!page.items.length) return <EmptyState title="No inventory yet" description="Products stocked here will appear once the data loads." />;
   return (
     <ul className="divide-y divide-line-faint rounded-xl border border-line-subtle bg-white">

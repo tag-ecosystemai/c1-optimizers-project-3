@@ -1,3 +1,4 @@
+import { PANEL } from "@/components/app/Panel";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
@@ -13,7 +14,6 @@ export async function generateMetadata({ params }: PageProps<"/my/orders/[orderI
   return { title: `Order #${(await params).orderId}` };
 }
 
-const card = "rounded-xl border border-line-subtle bg-white p-4";
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -47,7 +47,7 @@ export default async function Page({ params }: PageProps<"/my/orders/[orderId]">
       />
 
       {o.briefing_text && (
-        <section aria-labelledby="briefing" className={`${card} mb-4 ${late ? "border-red-200 bg-red-50/40" : ""}`}>
+        <section aria-labelledby="briefing" className={`${PANEL} mb-4 ${late ? "border-red-200 bg-red-50/40" : ""}`}>
           <h2 id="briefing" className="mb-1 text-sm font-medium text-fg">
             What this means for you
           </h2>
@@ -55,7 +55,7 @@ export default async function Page({ params }: PageProps<"/my/orders/[orderId]">
         </section>
       )}
 
-      <dl className={`${card} mb-4 grid grid-cols-2 gap-3 md:grid-cols-4`}>
+      <dl className={`${PANEL} mb-4 grid grid-cols-2 gap-3 md:grid-cols-4`}>
         <Fact label="Ordered">{date(o.order_date)}</Fact>
         <Fact label="Shipping">{o.shipping_mode}</Fact>
         <Fact label="Original ETA">{date(o.original_eta)}</Fact>
@@ -66,13 +66,13 @@ export default async function Page({ params }: PageProps<"/my/orders/[orderId]">
       </dl>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <section aria-labelledby="timeline" className={card}>
+        <section aria-labelledby="timeline" className={PANEL}>
           <h2 id="timeline" className="mb-4 text-sm font-medium text-fg">
             Timeline
           </h2>
           <Timeline events={o.timeline} asOfDate={asOf} />
         </section>
-        <section aria-labelledby="cover" className={card}>
+        <section aria-labelledby="cover" className={PANEL}>
           <h2 id="cover" className="mb-4 text-sm font-medium text-fg">
             Your stock of this product
           </h2>

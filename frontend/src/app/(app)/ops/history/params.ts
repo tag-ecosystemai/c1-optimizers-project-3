@@ -1,19 +1,14 @@
 import type { DecisionAction, DecisionListParams } from "@/types/api";
+import { first, isoDate, pick, type ParamValue } from "@/lib/params";
 
 export const ACTIONS: DecisionAction[] = ["approved", "dismissed", "escalated", "acknowledged"];
-const isDate = (v: string | undefined) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
 
 /** History filters from the URL (page searchParams or the export route's query), invalid values dropped. */
-export function historyParams(get: (key: string) => string | string[] | null | undefined): DecisionListParams {
-  const one = (k: string) => {
-    const v = get(k);
-    return (Array.isArray(v) ? v[0] : v) || undefined;
-  };
-  const action = one("action");
+export function historyParams(get: (key: string) => ParamValue): DecisionListParams {
   return {
-    action: ACTIONS.includes(action as DecisionAction) ? (action as DecisionAction) : undefined,
-    from: isDate(one("from")),
-    to: isDate(one("to")),
-    cursor: one("cursor"),
+    action: pick(get("action"), ACTIONS),
+    from: isoDate(get("from")),
+    to: isoDate(get("to")),
+    cursor: first(get("cursor")),
   };
 }

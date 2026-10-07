@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/app/Skeleton";
 
-/** Shared body for the /my/* loading.tsx files: title, optional KPI row, list. */
+/** Shared body for the loading.tsx files: title, optional KPI row, list. */
 export function PageSkeleton({ kpis }: { kpis?: boolean }) {
   return (
     <div className="flex flex-col gap-6">

@@ -2,6 +2,10 @@ import type { DecisionAction, IncidentStatus, OrderStatus } from "@/types/api";
 
 export type PillStatus = IncidentStatus | DecisionAction | OrderStatus;
 
+export const INCIDENT_STATUSES: IncidentStatus[] = ["open", "escalated", "approved", "dismissed", "resolved"];
+/** Filter options for incident status, labelled like the pill. */
+export const INCIDENT_STATUS_OPTIONS = INCIDENT_STATUSES.map((s) => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) }));
+
 // The text carries the meaning; colour and the glyph only reinforce it.
 const styles: Record<PillStatus, string> = {
   open: "bg-blue-100 text-blue-600 ring-blue-200",

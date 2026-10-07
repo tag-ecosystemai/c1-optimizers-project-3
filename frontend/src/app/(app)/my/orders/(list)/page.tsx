@@ -1,3 +1,4 @@
+import { first, isoDate, pick } from "@/lib/params";
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { MyOrder, MyOrderListParams, OrderStatus, Severity, ShippingMode } from "@/types/api";
@@ -44,9 +45,6 @@ const columns: Column<MyOrder>[] = [
   { key: "risk", header: "Risk", cell: (o) => <SeverityBadge severity={o.risk} /> },
 ];
 
-/** Keeps only values the API accepts, so a hand-edited URL can't send junk. */
-const pick = <T extends string>(v: string | string[] | undefined, allowed: readonly T[]) => (allowed.includes(v as T) ? (v as T) : undefined);
-const isoDate = (v: string | string[] | undefined) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
 
 export default async function Page({ searchParams }: PageProps<"/my/orders">) {
   const sp = await searchParams;
@@ -56,8 +54,8 @@ export default async function Page({ searchParams }: PageProps<"/my/orders">) {
     shipping_mode: pick(sp.shipping_mode, MODES),
     from: isoDate(sp.from),
     to: isoDate(sp.to),
-    q: typeof sp.q === "string" ? sp.q : undefined,
-    cursor: typeof sp.cursor === "string" ? sp.cursor : undefined,
+    q: first(sp.q),
+    cursor: first(sp.cursor),
   };
   const page = await listMyOrders(params);
   const filtered = Object.entries(params).some(([k, v]) => k !== "cursor" && v);

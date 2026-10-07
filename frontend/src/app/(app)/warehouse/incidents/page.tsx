@@ -1,26 +1,25 @@
+import { load } from "@/lib/load";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { unstable_rethrow } from "next/navigation";
-import type { IncidentListItem, IncidentListParams, IncidentSort, IncidentStatus, Page as DataPage, Severity } from "@/types/api";
+import type { IncidentListItem, IncidentListParams, IncidentSort } from "@/types/api";
 import { asOfDate, listIncidents } from "@/lib/data";
 import { date, days, num, relativeToAsOf, usd } from "@/lib/format";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { EmptyState } from "@/components/app/EmptyState";
-import { ErrorState } from "@/components/app/ErrorState";
+import { LoadError } from "@/components/app/LoadError";
 import { FilterBar } from "@/components/app/FilterBar";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Pagination } from "@/components/app/Pagination";
-import { SeverityBadge } from "@/components/app/SeverityBadge";
+import { SEVERITIES, SEVERITY_OPTIONS, SeverityBadge } from "@/components/app/SeverityBadge";
 import { Skeleton } from "@/components/app/Skeleton";
-import { StatusPill } from "@/components/app/StatusPill";
+import { INCIDENT_STATUSES, INCIDENT_STATUS_OPTIONS, StatusPill } from "@/components/app/StatusPill";
 import { AcknowledgeButton } from "@/components/warehouse/AcknowledgeButton";
-import { SEVERITY_OPTIONS, one } from "@/components/warehouse/params";
+import { first, pick } from "@/lib/params";
 
 export const metadata: Metadata = { title: "Incidents" };
 
 type Search = Record<string, string | string[] | undefined>;
 
-const STATUSES: IncidentStatus[] = ["open", "escalated", "approved", "dismissed", "resolved"];
 const SORT_KEYS = ["money_at_risk_usd", "predicted_delay_days", "stockout_date", "units_short", "created_at", "severity"];
 const DEFAULT_SORT = "-money_at_risk_usd";
 
@@ -81,13 +80,13 @@ function columns(asOf: string): Column<IncidentListItem>[] {
 
 export default async function Page({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
-  const sort = one(sp.sort);
+  const sort = first(sp.sort);
   const params: IncidentListParams = {
-    status: one(sp.status) as IncidentStatus | undefined,
-    severity: one(sp.severity) as Severity | undefined,
-    q: one(sp.q),
+    status: pick(sp.status, INCIDENT_STATUSES),
+    severity: pick(sp.severity, SEVERITIES),
+    q: first(sp.q),
     sort: sort && SORT_KEYS.includes(sort.replace(/^-/, "")) ? (sort as IncidentSort) : DEFAULT_SORT,
-    cursor: one(sp.cursor),
+    cursor: first(sp.cursor),
   };
   return (
     <>
@@ -98,7 +97,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
       <FilterBar
         search={{ param: "q", placeholder: "Search order, distributor or product" }}
         filters={[
-          { param: "status", label: "Status", options: STATUSES.map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1) })) },
+          { param: "status", label: "Status", options: INCIDENT_STATUS_OPTIONS },
           { param: "severity", label: "Severity", options: SEVERITY_OPTIONS },
         ]}
       />
@@ -110,14 +109,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
 }
 
 async function Incidents({ params }: { params: IncidentListParams }) {
-  let page: DataPage<IncidentListItem>;
-  let asOf: string;
-  try {
-    [page, asOf] = await Promise.all([listIncidents(params), asOfDate()]);
-  } catch (e) {
-    unstable_rethrow(e);
-    return <ErrorState message="We couldn't load incidents. Try again in a moment." />;
-  }
+  const data = await load(() => Promise.all([listIncidents(params), asOfDate()]));
+  if (!data) return <LoadError what="incidents" />;
+  const [page, asOf] = data;
   const filtered = !!(params.status || params.severity || params.q);
   return (
     <>

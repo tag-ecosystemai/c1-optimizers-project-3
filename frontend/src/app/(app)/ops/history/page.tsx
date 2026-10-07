@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { unstable_rethrow } from "next/navigation";
-import type { DecisionListParams, DecisionLogItem, Page as DataPage } from "@/types/api";
+import type { DecisionListParams, DecisionLogItem } from "@/types/api";
 import { listDecisions } from "@/lib/data";
 import { dateTime } from "@/lib/format";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { EmptyState } from "@/components/app/EmptyState";
-import { ErrorState } from "@/components/app/ErrorState";
+import { LoadError } from "@/components/app/LoadError";
+import { load } from "@/lib/load";
 import { FilterBar } from "@/components/app/FilterBar";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Pagination } from "@/components/app/Pagination";
@@ -73,13 +73,8 @@ export default async function Page({ searchParams }: PageProps<"/ops/history">) 
 }
 
 async function Decisions({ params }: { params: DecisionListParams }) {
-  let page: DataPage<DecisionLogItem>;
-  try {
-    page = await listDecisions(params);
-  } catch (e) {
-    unstable_rethrow(e);
-    return <ErrorState message="We couldn't load the decision log. Try again in a moment." />;
-  }
+  const page = await load(() => listDecisions(params));
+  if (!page) return <LoadError what="the decision log" />;
   const filtered = !!(params.action || params.from || params.to);
   return (
     <>

@@ -1,28 +1,26 @@
 import type { Metadata } from "next";
-import type { IncidentListItem, IncidentListParams, IncidentSort, IncidentStatus, Market, OpsKpis, Severity } from "@/types/api";
+import type { IncidentListItem, IncidentListParams, IncidentSort, Market, OpsKpis } from "@/types/api";
 import { getOpsNetwork, getOpsSummary, listIncidents } from "@/lib/data";
 import { date, days, num, percent, usd } from "@/lib/format";
+import { first, pick, positiveInt } from "@/lib/params";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FilterBar } from "@/components/app/FilterBar";
 import { KpiCard, type KpiDelta } from "@/components/app/KpiCard";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Pagination } from "@/components/app/Pagination";
-import { SeverityBadge } from "@/components/app/SeverityBadge";
-import { StatusPill } from "@/components/app/StatusPill";
+import { PANEL } from "@/components/app/Panel";
+import { SEVERITIES, SEVERITY_OPTIONS, SeverityBadge } from "@/components/app/SeverityBadge";
+import { INCIDENT_STATUSES, INCIDENT_STATUS_OPTIONS, StatusPill } from "@/components/app/StatusPill";
 import { AutoRefresh } from "@/components/ops/AutoRefresh";
 import { MarketChart } from "@/components/ops/MarketChart";
 
 export const metadata: Metadata = { title: "Watchtower" };
 
 const MARKETS: Market[] = ["Europe", "USCA", "LATAM", "Africa", "Pacific Asia"];
-const SEVERITIES: Severity[] = ["HIGH", "MEDIUM", "LOW", "NONE"];
-const STATUSES: IncidentStatus[] = ["open", "approved", "dismissed", "escalated", "resolved"];
 const SORTS = ["money_at_risk_usd", "predicted_delay_days", "stockout_date", "units_short", "created_at", "severity"];
 const DEFAULT_SORT = "-money_at_risk_usd";
 
-const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-const pick = <T extends string>(v: string | undefined, allowed: readonly T[]) => (allowed.includes(v as T) ? (v as T) : undefined);
 
 /** For every Watchtower KPI, going up is bad. */
 function delta(now: number, before: number | undefined, fmt: (n: number) => string): KpiDelta | undefined {
@@ -54,8 +52,6 @@ const columns: Column<IncidentListItem>[] = [
   },
 ];
 
-const panel = "rounded-xl border border-line-subtle p-4";
-
 /** Daily counts as bars; each bar's date and count are in its label and tooltip, so it isn't colour-only. */
 function TrendBars({ trend }: { trend: { date: string; opened: number }[] }) {
   const max = Math.max(1, ...trend.map((t) => t.opened));
@@ -84,16 +80,15 @@ function TrendBars({ trend }: { trend: { date: string; opened: number }[] }) {
 
 export default async function Page({ searchParams }: PageProps<"/ops/watchtower">) {
   const sp = await searchParams;
-  const sort = one(sp.sort);
-  const distributorId = Number(one(sp.distributor_id));
+  const sort = first(sp.sort);
   const params: IncidentListParams = {
-    market: pick(one(sp.market), MARKETS),
-    severity: pick(one(sp.severity), SEVERITIES),
-    status: pick(one(sp.status), STATUSES),
-    distributor_id: Number.isInteger(distributorId) && distributorId > 0 ? distributorId : undefined,
-    q: one(sp.q) || undefined,
+    market: pick(sp.market, MARKETS),
+    severity: pick(sp.severity, SEVERITIES),
+    status: pick(sp.status, INCIDENT_STATUSES),
+    distributor_id: positiveInt(sp.distributor_id),
+    q: first(sp.q),
     sort: sort && SORTS.includes(sort.replace(/^-/, "")) ? (sort as IncidentSort) : DEFAULT_SORT,
-    cursor: one(sp.cursor) || undefined,
+    cursor: first(sp.cursor),
   };
   const [summary, page, network] = await Promise.all([getOpsSummary(), listIncidents(params), getOpsNetwork()]);
   const y: Partial<OpsKpis> = summary.yesterday ?? {};
@@ -130,8 +125,8 @@ export default async function Page({ searchParams }: PageProps<"/ops/watchtower"
             search={{ param: "q", placeholder: "Search order, distributor, product" }}
             filters={[
               { param: "market", label: "Market", options: MARKETS.map((m) => ({ value: m, label: m })) },
-              { param: "severity", label: "Severity", options: SEVERITIES.map((s) => ({ value: s, label: s.charAt(0) + s.slice(1).toLowerCase() })) },
-              { param: "status", label: "Status", options: STATUSES.map((s) => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })) },
+              { param: "severity", label: "Severity", options: SEVERITY_OPTIONS },
+              { param: "status", label: "Status", options: INCIDENT_STATUS_OPTIONS },
               {
                 param: "distributor_id",
                 label: "Distributor",
@@ -161,7 +156,7 @@ export default async function Page({ searchParams }: PageProps<"/ops/watchtower"
           aria-label="Breakdowns"
           className="flex min-w-0 flex-col gap-6 md:max-2xl:grid md:max-2xl:grid-cols-3 md:max-2xl:items-start 2xl:sticky 2xl:top-20 2xl:max-h-[calc(100vh-6rem)] 2xl:self-start 2xl:overflow-y-auto 2xl:overscroll-contain 2xl:pr-1"
         >
-          <section aria-labelledby="market-title" className={panel}>
+          <section aria-labelledby="market-title" className={PANEL}>
             <h2 id="market-title" className="mb-3 text-base text-fg">
               $ at risk by market
             </h2>
@@ -172,7 +167,7 @@ export default async function Page({ searchParams }: PageProps<"/ops/watchtower"
             )}
           </section>
 
-          <section aria-labelledby="products-title" className={panel}>
+          <section aria-labelledby="products-title" className={PANEL}>
             <h2 id="products-title" className="mb-3 text-base text-fg">
               Top 5 products at risk
             </h2>
@@ -198,7 +193,7 @@ export default async function Page({ searchParams }: PageProps<"/ops/watchtower"
             )}
           </section>
 
-          <section aria-labelledby="trend-title" className={panel}>
+          <section aria-labelledby="trend-title" className={PANEL}>
             <h2 id="trend-title" className="mb-1 text-base text-fg">
               Incidents opened per day
             </h2>

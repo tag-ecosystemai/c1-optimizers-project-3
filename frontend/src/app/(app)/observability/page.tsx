@@ -4,7 +4,12 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { KpiCard } from "@/components/app/KpiCard";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Skeleton } from "@/components/app/Skeleton";
-import { card, ExternalLink, LoadError, load, Section, StatusTag, Tag } from "@/components/observability/shared";
+import { load } from "@/lib/load";
+import { LoadError } from "@/components/app/LoadError";
+import { Tag } from "@/components/app/Tag";
+import { ExternalLink } from "@/components/app/ExternalLink";
+import { PANEL, Section } from "@/components/app/Panel";
+import { StatusTag } from "@/components/observability/shared";
 import { getObservability } from "@/lib/data";
 import { date, num } from "@/lib/format";
 import type { HubLinkKey } from "@/types/api";
@@ -57,7 +62,7 @@ async function Hub() {
         {links.length ? (
           <ul className="grid gap-3 md:grid-cols-2">
             {links.map((l) => (
-              <li key={l.key} className={`${card} flex flex-col gap-2`}>
+              <li key={l.key} className={`${PANEL} flex flex-col gap-2`}>
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="text-sm font-medium text-fg">{l.label}</h3>
                   <StatusTag status={l.status} />

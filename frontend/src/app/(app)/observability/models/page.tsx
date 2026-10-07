@@ -5,7 +5,11 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Skeleton } from "@/components/app/Skeleton";
 import { MetricTrendChart } from "@/components/observability/Charts";
-import { card, ExternalLink, LoadError, load, Section, StatusTag } from "@/components/observability/shared";
+import { load } from "@/lib/load";
+import { LoadError } from "@/components/app/LoadError";
+import { ExternalLink } from "@/components/app/ExternalLink";
+import { PANEL, Section } from "@/components/app/Panel";
+import { StatusTag } from "@/components/observability/shared";
 import { getModels } from "@/lib/data";
 import { dateTime, num } from "@/lib/format";
 import type { ModelRun, ModelSummary } from "@/types/api";
@@ -60,7 +64,7 @@ function ModelBlock({ model }: { model: ModelSummary }) {
   return (
     <Section title={model.name} description={model.target}>
       <div className="grid gap-3 lg:grid-cols-[3fr_2fr]">
-        <div className={card}>
+        <div className={PANEL}>
           {c ? (
             <div className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -90,7 +94,7 @@ function ModelBlock({ model }: { model: ModelSummary }) {
             <EmptyState title="No champion yet" description="Promote a run in MLflow to make it the champion." />
           )}
         </div>
-        <div className={card}>
+        <div className={PANEL}>
           {trend.length > 1 ? (
             <MetricTrendChart points={trend} metric="MAE" />
           ) : (

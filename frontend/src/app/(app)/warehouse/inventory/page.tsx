@@ -1,18 +1,18 @@
+import { load } from "@/lib/load";
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { unstable_rethrow } from "next/navigation";
-import type { InventoryListParams, InventoryRow, Page as DataPage, Severity } from "@/types/api";
+import type { InventoryListParams, InventoryRow } from "@/types/api";
 import { listWarehouseInventory } from "@/lib/data";
 import { date, days, num } from "@/lib/format";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { EmptyState } from "@/components/app/EmptyState";
-import { ErrorState } from "@/components/app/ErrorState";
+import { LoadError } from "@/components/app/LoadError";
 import { FilterBar } from "@/components/app/FilterBar";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Pagination } from "@/components/app/Pagination";
-import { SeverityBadge } from "@/components/app/SeverityBadge";
+import { SEVERITIES, SEVERITY_OPTIONS, SeverityBadge } from "@/components/app/SeverityBadge";
 import { Skeleton } from "@/components/app/Skeleton";
-import { SEVERITY_OPTIONS, one } from "@/components/warehouse/params";
+import { first, pick } from "@/lib/params";
 
 export const metadata: Metadata = { title: "Inventory" };
 
@@ -40,13 +40,13 @@ const columns: Column<InventoryRow>[] = [
 
 export default async function Page({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
-  const sort = one(sp.sort);
+  const sort = first(sp.sort);
   const params: InventoryListParams = {
-    category: one(sp.category),
-    severity: one(sp.severity) as Severity | undefined,
-    q: one(sp.q),
+    category: first(sp.category),
+    severity: pick(sp.severity, SEVERITIES),
+    q: first(sp.q),
     sort: SORTS.find((s) => s === sort),
-    cursor: one(sp.cursor),
+    cursor: first(sp.cursor),
   };
   return (
     <>
@@ -59,15 +59,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
 }
 
 async function Inventory({ params }: { params: InventoryListParams }) {
-  let page: DataPage<InventoryRow>;
-  let all: DataPage<InventoryRow>;
-  try {
     // ponytail: categories come from one unfiltered 100-row call; add a categories endpoint if a warehouse stocks more.
-    [page, all] = await Promise.all([listWarehouseInventory(params), listWarehouseInventory({ limit: 100 })]);
-  } catch (e) {
-    unstable_rethrow(e);
-    return <ErrorState message="We couldn't load inventory. Try again in a moment." />;
-  }
+  const data = await load(() => Promise.all([listWarehouseInventory(params), listWarehouseInventory({ limit: 100 })]));
+  if (!data) return <LoadError what="inventory" />;
+  const [page, all] = data;
   const categories = [...new Set(all.items.map((r) => r.product.category).filter((c): c is string => !!c))].sort();
   const filtered = !!(params.category || params.severity || params.q);
   return (

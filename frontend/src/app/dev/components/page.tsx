@@ -1,3 +1,4 @@
+import { PANEL } from "@/components/app/Panel";
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -156,19 +157,19 @@ export default async function ComponentsPage({ searchParams }: { searchParams: P
 
       <Section id="cover" title="CoverBar" note={`Day 0 is the data's as-of date (${AS_OF_DATE}), never the browser clock.`}>
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border border-line-subtle bg-white p-4">
+          <div className={PANEL}>
             <Label>late: incident #812 (red gap, units short)</Label>
             <CoverBar asOfDate={AS_OF_DATE} cover={hero.cascade} />
           </div>
-          <div className="rounded-xl border border-line-subtle bg-white p-4">
+          <div className={PANEL}>
             <Label>arrives in time</Label>
             <CoverBar asOfDate={AS_OF_DATE} cover={{ days_of_cover: 18, stockout_date: addDays(AS_OF_DATE, 18), projected_arrival: addDays(AS_OF_DATE, 9) }} />
           </div>
-          <div className="rounded-xl border border-line-subtle bg-white p-4">
+          <div className={PANEL}>
             <Label>already out of stock</Label>
             <CoverBar asOfDate={AS_OF_DATE} cover={{ days_of_cover: 0, stockout_date: AS_OF_DATE, projected_arrival: addDays(AS_OF_DATE, 6), units_short: 85 }} />
           </div>
-          <div className="rounded-xl border border-line-subtle bg-white p-4">
+          <div className={PANEL}>
             <Label>long cover (window grows to 45 days)</Label>
             <CoverBar asOfDate={AS_OF_DATE} cover={{ days_of_cover: 40, stockout_date: addDays(AS_OF_DATE, 40), projected_arrival: addDays(AS_OF_DATE, 43), units_short: 12 }} />
           </div>
@@ -217,11 +218,11 @@ export default async function ComponentsPage({ searchParams }: { searchParams: P
 
       <Section id="incident" title="Timeline, EvidenceList and ShapChart" note="Incident #812: order #55123 to Brazil Consumer.">
         <div className="grid gap-6 lg:grid-cols-[1fr_1.4fr]">
-          <div className="rounded-xl border border-line-subtle bg-white p-4">
+          <div className={PANEL}>
             <Label>Timeline with asOfDate</Label>
             <Timeline events={timeline} asOfDate={AS_OF_DATE} />
           </div>
-          <div className="rounded-xl border border-line-subtle bg-white p-4">
+          <div className={PANEL}>
             <Label>ShapChart with riskScore</Label>
             <ShapChart factors={hero.shap} riskScore={hero.cascade.delay_risk_score} />
           </div>
@@ -231,7 +232,7 @@ export default async function ComponentsPage({ searchParams }: { searchParams: P
             <Label>EvidenceList</Label>
             <EvidenceList items={hero.evidence} />
           </div>
-          <div className="rounded-xl border border-line-subtle bg-white p-4">
+          <div className={PANEL}>
             <Label>ShapChart, positive only, no score</Label>
             <ShapChart factors={hero.shap.filter((f) => f.contribution > 0).slice(0, 3)} />
           </div>

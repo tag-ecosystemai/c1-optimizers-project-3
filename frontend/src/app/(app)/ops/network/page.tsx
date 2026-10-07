@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { unstable_rethrow } from "next/navigation";
-import type { NetworkWarehouse } from "@/types/api";
 import { getOpsNetwork } from "@/lib/data";
 import { num, usd } from "@/lib/format";
 import { EmptyState } from "@/components/app/EmptyState";
-import { ErrorState } from "@/components/app/ErrorState";
+import { LoadError } from "@/components/app/LoadError";
+import { load } from "@/lib/load";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Skeleton } from "@/components/app/Skeleton";
 import { NetworkMap } from "@/components/network/NetworkMap";
@@ -55,13 +54,8 @@ function Stats({ open, money, lowCover }: { open: number; money?: number; lowCov
 }
 
 async function Network() {
-  let network: NetworkWarehouse[];
-  try {
-    network = await getOpsNetwork();
-  } catch (e) {
-    unstable_rethrow(e);
-    return <ErrorState message="We couldn't load the network. Try again in a moment." />;
-  }
+  const network = await load(getOpsNetwork);
+  if (!network) return <LoadError what="the network" />;
   if (!network.length) return <EmptyState title="No warehouses yet" description="Warehouses and their distributors will appear here once the network is set up." />;
 
   return (
