@@ -44,7 +44,7 @@ const failedColumns: Column<FailedRun>[] = [
 const driftColumns: Column<Drift>[] = [
   { key: "feature", header: "Feature", cell: (d) => <code className="text-xs break-all text-fg">{d.feature}</code> },
   { key: "metric", header: "Metric", cell: (d) => d.metric, hideBelow: "sm" },
-  { key: "value", header: "Value", cell: (d) => `${d.value.toFixed(2)} / ${d.threshold.toFixed(2)}`, align: "right", className: "whitespace-nowrap" },
+  { key: "value", header: "Value", cell: (d) => `${num(d.value, 2)} / ${num(d.threshold, 2)}`, align: "right", className: "whitespace-nowrap" },
   { key: "flag", header: "Flag", cell: (d) => (d.flagged ? <Tag tone="warn">Drifting</Tag> : <Tag tone="good">Stable</Tag>) },
 ];
 

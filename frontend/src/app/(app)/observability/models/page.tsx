@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/app/Skeleton";
 import { MetricTrendChart } from "@/components/observability/Charts";
 import { card, ExternalLink, LoadError, load, Section, StatusTag } from "@/components/observability/shared";
 import { getModels } from "@/lib/data";
-import { dateTime } from "@/lib/format";
+import { dateTime, num } from "@/lib/format";
 import type { ModelRun, ModelSummary } from "@/types/api";
 
 export const metadata: Metadata = { title: "Models" };
@@ -37,7 +37,7 @@ async function Models() {
 }
 
 // Failed runs carry no metrics, so show a dash instead of a misleading 0.
-const metric = (r: ModelRun, v: number) => (r.status === "failed" ? "—" : v.toFixed(2));
+const metric = (r: ModelRun, v: number) => (r.status === "failed" ? "—" : num(v, 2));
 
 const columns: Column<ModelRun>[] = [
   { key: "version", header: "Version", cell: (r) => <span className="font-medium text-fg">{r.version}</span> },
@@ -80,7 +80,7 @@ function ModelBlock({ model }: { model: ModelSummary }) {
                 ).map(([k, v]) => (
                   <div key={k} className="rounded-lg bg-surface px-3 py-2">
                     <dt className="text-xs text-muted">{k}</dt>
-                    <dd className="font-display text-xl text-fg tabular-nums">{v.toFixed(2)}</dd>
+                    <dd className="font-display text-xl text-fg tabular-nums">{num(v, 2)}</dd>
                   </div>
                 ))}
               </dl>

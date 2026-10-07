@@ -7,6 +7,7 @@ import { effectiveRole, homeFor, NAV, ROLE_LABEL } from "@/lib/auth/routes";
 import { exitViewAs, signOut, viewAs } from "@/lib/auth/actions";
 import { authMode, getMe, getOpsNetwork } from "@/lib/data";
 import { NavLinks } from "./_shell/NavLinks";
+import { RefreshOnFocus } from "./_shell/RefreshOnFocus";
 
 export const metadata: Metadata = {
   title: { template: "%s · RunOut", default: "RunOut" },
@@ -26,6 +27,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
+      <RefreshOnFocus />
       <header className="sticky top-0 z-40 border-b border-line-subtle bg-white/95 backdrop-blur-md">
         <div className="flex h-14 items-center justify-between gap-3 px-4 lg:px-6">
           <div className="flex min-w-0 items-center gap-3">

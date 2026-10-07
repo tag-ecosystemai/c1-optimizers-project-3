@@ -49,8 +49,8 @@ function recentColumns(incidentHref: (id: number) => string | null): Column<Inve
     { key: "order", header: "Order", cell: (r) => `#${r.order_id}`, hideBelow: "sm" },
     { key: "cause", header: "Probable cause", cell: (r) => r.probable_cause ?? <span className="text-muted">Still investigating</span>, className: "min-w-40" },
     { key: "status", header: "Status", cell: (r) => <StatusTag status={r.status} /> },
-    { key: "latency", header: "Latency", cell: (r) => `${r.latency_s.toFixed(1)} s`, align: "right", hideBelow: "md" },
-    { key: "cost", header: "Cost", cell: (r) => usd(r.cost_usd), align: "right", hideBelow: "md" },
+    { key: "latency", header: "Latency", cell: (r) => `${num(r.latency_s, 1)} s`, align: "right", hideBelow: "md" },
+    { key: "cost", header: "Cost", cell: (r) => usd(r.cost_usd, { decimals: 3 }), align: "right", hideBelow: "md" },
     { key: "at", header: "Investigated", cell: (r) => <span className="whitespace-nowrap">{dateTime(r.investigated_at)}</span>, hideBelow: "lg" },
   ];
 }
@@ -70,8 +70,8 @@ async function Agent() {
       <Section title={s.period} actions={s.traces_url ? <ExternalLink href={s.traces_url}>Open traces in Langfuse</ExternalLink> : undefined}>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <KpiCard label="Agent runs" value={num(s.runs)} />
-          <KpiCard label="Avg latency" value={`${s.avg_latency_s.toFixed(1)} s`} />
-          <KpiCard label="Avg cost" value={usd(s.avg_cost_usd)} hint={`${usd(s.avg_cost_usd * s.runs)} in total`} />
+          <KpiCard label="Avg latency" value={`${num(s.avg_latency_s, 1)} s`} />
+          <KpiCard label="Avg cost" value={usd(s.avg_cost_usd, { decimals: 3 })} hint={`${usd(s.avg_cost_usd * s.runs)} in total`} />
           <KpiCard label="Error rate" value={percent(s.error_rate, 1)} hint={`${num(Math.round(s.error_rate * s.runs))} failed runs`} />
         </div>
       </Section>

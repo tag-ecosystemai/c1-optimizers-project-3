@@ -5,12 +5,12 @@ const DAY_MS = 86_400_000;
 
 const toDate = (d: string) => new Date(d.length === 10 ? `${d}T00:00:00Z` : d);
 
-/** `$1,180.50`; whole amounts drop the cents (`$340`). `compact` gives `$1.2K`. */
-export function usd(n: number, opts: { compact?: boolean } = {}): string {
+/** `$1,180.50`; whole amounts drop the cents (`$340`). `compact` gives `$1.2K`; `decimals: 3` gives `$0.031` for tiny costs. */
+export function usd(n: number, opts: { compact?: boolean; decimals?: number } = {}): string {
   if (opts.compact) {
     return n.toLocaleString("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 });
   }
-  const cents = Number.isInteger(n) ? 0 : 2;
+  const cents = opts.decimals ?? (Number.isInteger(n) ? 0 : 2);
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: cents, maximumFractionDigits: cents });
 }
 
@@ -37,9 +37,9 @@ export function percent(n: number, digits = 0): string {
   return `${(n * 100).toFixed(digits)}%`;
 }
 
-/** `1,240`. */
-export function num(n: number): string {
-  return n.toLocaleString("en-US");
+/** `1,240`; `digits` fixes the decimals (`num(0.8123, 2)` → `0.81`). */
+export function num(n: number, digits?: number): string {
+  return n.toLocaleString("en-US", digits === undefined ? undefined : { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 
 /** Whole days from `from` to `to` (negative if `to` is earlier). */

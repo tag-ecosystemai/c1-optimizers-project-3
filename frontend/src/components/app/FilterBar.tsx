@@ -35,9 +35,21 @@ export function FilterBar({ filters, search }: { filters: FilterDef[]; search?: 
 
   const urlQuery = search ? (params.get(search.param) ?? "") : "";
   const [q, setQ] = useState(urlQuery);
+  // Keep the box in step with the URL on back/forward, but not when the change is our own debounced write
+  // landing while the user has typed further.
+  const [prevUrlQuery, setPrevUrlQuery] = useState(urlQuery);
+  const [written, setWritten] = useState<string | null>(null);
+  if (urlQuery !== prevUrlQuery) {
+    setPrevUrlQuery(urlQuery);
+    if (urlQuery !== written) setQ(urlQuery);
+    setWritten(null);
+  }
   useEffect(() => {
     if (!search || q === urlQuery) return;
-    const t = setTimeout(() => set(search.param, q), 300);
+    const t = setTimeout(() => {
+      setWritten(q);
+      set(search.param, q);
+    }, 300);
     return () => clearTimeout(t);
   });
 
@@ -66,7 +78,7 @@ export function FilterBar({ filters, search }: { filters: FilterDef[]; search?: 
           <label key={f.param} className="flex min-w-32 flex-col gap-1 text-xs text-muted max-sm:flex-1">
             {f.label}
             {f.kind === "date" ? (
-              <input type="date" value={value} onChange={(e) => set(f.param, e.target.value)} className={field} />
+              <input type="date" value={value} onChange={(e) => set(f.param, e.target.value)} className={`${field} focus:border-blue-400 focus:outline-2 focus:outline-offset-1 focus:outline-blue-500`} />
             ) : (
               <select value={value} onChange={(e) => set(f.param, e.target.value)} className={`${field} ${value ? "border-line-strong text-fg" : ""}`}>
                 <option value="">{f.allLabel ?? "All"}</option>
