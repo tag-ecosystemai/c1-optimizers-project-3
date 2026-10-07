@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+
+const btn =
+  "inline-flex h-9 cursor-pointer items-center justify-center rounded-[10px] border px-3 text-sm transition-colors " +
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 disabled:cursor-not-allowed disabled:opacity-50";
 
 /**
- * Confirmation for Approve / Dismiss / Escalate, with an optional note. Native <dialog>: focus is trapped
- * and Esc closes (calls onCancel).
+ * Confirmation for Approve / Dismiss / Escalate, with an optional note. Native <dialog> opened with
+ * showModal(): the page behind is inert (focus stays inside), Esc and a backdrop click call onCancel,
+ * and focus returns to the button that opened it. Neither closes while `pending`. On open, focus lands on
+ * the note field if there is one, else on Cancel (the safe choice).
  * @param open         Show or hide.
  * @param title        e.g. "Approve First Class shipping?".
  * @param description  Extra context.
@@ -44,6 +50,7 @@ export function ConfirmDialog({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [note, setNote] = useState("");
+  const id = useId();
 
   useEffect(() => {
     const d = ref.current;
@@ -52,15 +59,23 @@ export function ConfirmDialog({
     if (!open && d.open) d.close();
   }, [open]);
 
+  const cancel = () => {
+    if (!pending) onCancel();
+  };
+
   return (
     <dialog
       ref={ref}
       onCancel={(e) => {
         e.preventDefault();
-        onCancel();
+        cancel();
       }}
-      aria-labelledby="confirm-title"
-      className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-2xl border border-line-subtle bg-white p-5 text-fg shadow-xl backdrop:bg-black/30"
+      onClose={() => setNote("")}
+      // A click on the dialog element itself (not its content) is a click on the backdrop.
+      onClick={(e) => e.target === e.currentTarget && cancel()}
+      aria-labelledby={`${id}-title`}
+      aria-describedby={description ? `${id}-desc` : undefined}
+      className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-2xl border border-line-subtle bg-white p-0 text-fg shadow-xl backdrop:bg-black-200/40 backdrop:backdrop-blur-[2px]"
     >
       <form
         method="dialog"
@@ -68,31 +83,45 @@ export function ConfirmDialog({
           e.preventDefault();
           onConfirm(note.trim());
         }}
-        className="flex flex-col gap-4"
+        className="flex flex-col gap-4 p-5"
       >
-        <h2 id="confirm-title" className="text-lg text-fg">
+        <h2 id={`${id}-title`} className="text-lg text-fg">
           {title}
         </h2>
-        {description && <div className="text-sm text-muted">{description}</div>}
+        {description && (
+          <div id={`${id}-desc`} className="text-sm text-muted">
+            {description}
+          </div>
+        )}
         {noteLabel && (
-          <label className="flex flex-col gap-1 text-sm text-fg-2">
-            {noteLabel}
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} required={noteRequired} className="rounded-[10px] border border-line p-2 text-sm text-fg focus-visible:outline-2 focus-visible:outline-blue-500" />
+          <label className="flex flex-col gap-1.5 text-sm text-fg-2">
+            <span>
+              {noteLabel} {noteRequired ? <span className="text-muted">(required)</span> : <span className="text-muted">(optional)</span>}
+            </span>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              rows={3}
+              required={noteRequired}
+              disabled={pending}
+              className="resize-y rounded-[10px] border border-line p-2.5 text-sm text-fg focus-visible:border-blue-400 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-500 disabled:opacity-60"
+            />
           </label>
         )}
         {error && (
-          <p role="alert" className="text-sm text-risk-high">
+          <p role="alert" className="flex gap-1.5 rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-sm text-risk-high">
+            <span aria-hidden="true">⚠</span>
             {error}
           </p>
         )}
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onCancel} disabled={pending} className="h-9 cursor-pointer rounded-[10px] border border-white-800 bg-white px-3 text-sm text-black-400 hover:bg-white-300 disabled:opacity-50">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <button type="button" onClick={cancel} disabled={pending} className={`${btn} border-white-800 bg-white text-black-400 hover:bg-white-300`}>
             Cancel
           </button>
           <button
             type="submit"
             disabled={pending || (noteRequired && !note.trim())}
-            className={`h-9 cursor-pointer rounded-[10px] border px-3 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 ${tone === "danger" ? "border-red-700 bg-risk-high hover:bg-red-700" : "border-black-600 bg-black-200 hover:bg-black-500"}`}
+            className={`${btn} text-white ${tone === "danger" ? "border-red-700 bg-risk-high hover:bg-red-700" : "border-black-600 bg-black-200 hover:bg-black-500"}`}
           >
             {pending ? "Saving…" : confirmLabel}
           </button>

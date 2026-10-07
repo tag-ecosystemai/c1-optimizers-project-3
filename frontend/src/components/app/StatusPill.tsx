@@ -2,16 +2,29 @@ import type { DecisionAction, IncidentStatus, OrderStatus } from "@/types/api";
 
 export type PillStatus = IncidentStatus | DecisionAction | OrderStatus;
 
+// The text carries the meaning; colour and the glyph only reinforce it.
 const styles: Record<PillStatus, string> = {
-  open: "bg-blue-100 text-blue-600",
-  approved: "bg-green-50 text-green-700",
-  dismissed: "bg-surface text-muted",
-  escalated: "bg-amber-50 text-amber-700",
-  resolved: "bg-surface text-fg-2",
-  acknowledged: "bg-surface text-fg-2",
-  processing: "bg-surface text-muted",
-  in_transit: "bg-blue-100 text-blue-600",
-  delivered: "bg-green-50 text-green-700",
+  open: "bg-blue-100 text-blue-600 ring-blue-200",
+  approved: "bg-green-50 text-green-700 ring-green-200",
+  dismissed: "bg-surface text-muted ring-line-subtle",
+  escalated: "bg-amber-50 text-amber-700 ring-amber-200",
+  resolved: "bg-surface text-fg-2 ring-line-subtle",
+  acknowledged: "bg-surface text-fg-2 ring-line-subtle",
+  processing: "bg-surface text-muted ring-line-subtle",
+  in_transit: "bg-blue-100 text-blue-600 ring-blue-200",
+  delivered: "bg-green-50 text-green-700 ring-green-200",
+};
+
+const glyphs: Record<PillStatus, string> = {
+  open: "●",
+  approved: "✓",
+  dismissed: "–",
+  escalated: "↑",
+  resolved: "✓",
+  acknowledged: "✓",
+  processing: "○",
+  in_transit: "→",
+  delivered: "✓",
 };
 
 const labels: Partial<Record<PillStatus, string>> = { in_transit: "In transit" };
@@ -22,5 +35,12 @@ const labels: Partial<Record<PillStatus, string>> = { in_transit: "In transit" }
  */
 export function StatusPill({ status }: { status: PillStatus }) {
   const label = labels[status] ?? status.charAt(0).toUpperCase() + status.slice(1);
-  return <span className={`inline-flex h-6 items-center rounded-md px-2 text-[12px] font-medium ${styles[status]}`}>{label}</span>;
+  return (
+    <span className={`inline-flex h-6 items-center gap-1 rounded-md px-2 text-[12px] font-medium whitespace-nowrap ring-1 ring-inset ${styles[status]}`}>
+      <span aria-hidden="true" className="text-[10px] leading-none">
+        {glyphs[status]}
+      </span>
+      {label}
+    </span>
+  );
 }
