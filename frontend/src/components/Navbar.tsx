@@ -34,7 +34,7 @@ export function Navbar() {
           </ul>
         </div>
         <div className="flex gap-x-2.5">
-          <Button href="#" variant="outline" className="max-lg:hidden">
+          <Button href="/login" variant="outline" className="max-lg:hidden">
             Sign in
           </Button>
           <Button href="#">Get started</Button>
