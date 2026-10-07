@@ -41,6 +41,7 @@ export function toListItem(i: MockIncident, role: Role): IncidentListItem {
     ...(role !== "distributor" && { money_at_risk_usd: i.cascade.money_at_risk_usd }),
     created_at: i.created_at,
     investigating: i.probable_cause === null,
+    ...(role !== "distributor" && { acknowledged_by_warehouse: i.decisions.some((d) => d.action === "acknowledged") }),
   };
 }
 

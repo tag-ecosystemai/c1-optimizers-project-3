@@ -33,6 +33,10 @@ function columns(asOf: string): Column<IncidentListItem>[] {
         <span className="flex flex-col whitespace-nowrap">
           <span className="text-fg">#{i.incident_id}</span>
           <span className="text-xs text-muted">Order #{i.order_id}</span>
+          {/* Phones: the Action column is hidden, so the button lives here. */}
+          <span className="mt-1.5 md:hidden">
+            <AcknowledgeButton incidentId={i.incident_id} orderId={i.order_id} acknowledged={i.acknowledged_by_warehouse} />
+          </span>
         </span>
       ),
     },
@@ -40,7 +44,7 @@ function columns(asOf: string): Column<IncidentListItem>[] {
       key: "what",
       header: "Distributor · product",
       cell: (i) => (
-        <span className="flex min-w-40 flex-col">
+        <span className="flex flex-col sm:min-w-40">
           <span className="text-fg">{i.distributor.name}</span>
           <span className="text-xs text-muted">{i.product.name}</span>
         </span>
@@ -71,7 +75,7 @@ function columns(asOf: string): Column<IncidentListItem>[] {
         </span>
       ),
     },
-    { key: "ack", header: "Action", align: "right", cell: (i) => <AcknowledgeButton incidentId={i.incident_id} orderId={i.order_id} /> },
+    { key: "ack", header: "Action", align: "right", hideBelow: "md", cell: (i) => <AcknowledgeButton incidentId={i.incident_id} orderId={i.order_id} acknowledged={i.acknowledged_by_warehouse} /> },
   ];
 }
 

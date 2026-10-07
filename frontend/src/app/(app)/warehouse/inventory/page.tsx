@@ -31,7 +31,7 @@ const columns: Column<InventoryRow>[] = [
       </span>
     ),
   },
-  { key: "stock", header: "Stock on hand", sortKey: "stock_on_hand", align: "right", cell: (r) => num(r.stock_on_hand) },
+  { key: "stock", header: "Stock on hand", sortKey: "stock_on_hand", align: "right", hideBelow: "sm", cell: (r) => num(r.stock_on_hand) },
   { key: "asof", header: "As of", hideBelow: "md", cell: (r) => <span className="whitespace-nowrap">{date(r.as_of_date)}</span> },
   { key: "usage", header: "Weekly usage", align: "right", hideBelow: "sm", cell: (r) => num(r.weekly_usage) },
   { key: "cover", header: "Days of cover", sortKey: "days_of_cover", align: "right", cell: (r) => <span className="whitespace-nowrap">{days(r.days_of_cover)}</span> },

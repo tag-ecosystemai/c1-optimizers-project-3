@@ -7,8 +7,8 @@ import { ConfirmDialog } from "@/components/app/ConfirmDialog";
 const btn =
   "inline-flex h-8 cursor-pointer items-center rounded-[10px] border border-white-800 bg-white px-2.5 text-xs text-black-400 hover:bg-white-300 focus-visible:outline-2 focus-visible:outline-blue-500";
 
-/** Warehouse "Acknowledge" for one incident: confirm, call the action, show the outcome inline. */
-export function AcknowledgeButton({ incidentId, orderId }: { incidentId: number; orderId: number }) {
+/** Warehouse "Acknowledge" for one incident: confirm, call the action, show the outcome inline. Shows "Acknowledged" when already done. */
+export function AcknowledgeButton({ incidentId, orderId, acknowledged = false }: { incidentId: number; orderId: number; acknowledged?: boolean }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string>();
   const [done, setDone] = useState(false);
@@ -25,7 +25,7 @@ export function AcknowledgeButton({ incidentId, orderId }: { incidentId: number;
 
   return (
     <>
-      {done ? (
+      {done || acknowledged ? (
         <span role="status" className="text-xs text-green-700">
           ✓ Acknowledged
         </span>

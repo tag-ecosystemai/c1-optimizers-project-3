@@ -82,6 +82,8 @@ export interface IncidentListItem {
   created_at: ISODateTime;
   /** True while the agent has not written a probable cause yet. */
   investigating?: boolean;
+  /** True once the owning warehouse has acknowledged it. Omitted for distributors. */
+  acknowledged_by_warehouse?: boolean;
 }
 
 /** `sort` param: a field name, prefixed with `-` for descending. */
