@@ -156,7 +156,11 @@ export default async function Page({ searchParams }: PageProps<"/ops/watchtower"
           {page.items.length > 0 && <Pagination nextCursor={page.next_cursor} prevCursor={page.prev_cursor} count={page.items.length} total={page.total} />}
         </section>
 
-        <div className="flex min-w-0 flex-col gap-6 md:max-2xl:grid md:max-2xl:grid-cols-3 md:max-2xl:items-start">
+        {/* Side panels: below 2xl they sit under the queue; at 2xl they stick under the header and scroll on their own. */}
+        <aside
+          aria-label="Breakdowns"
+          className="flex min-w-0 flex-col gap-6 md:max-2xl:grid md:max-2xl:grid-cols-3 md:max-2xl:items-start 2xl:sticky 2xl:top-20 2xl:max-h-[calc(100vh-6rem)] 2xl:self-start 2xl:overflow-y-auto 2xl:overscroll-contain 2xl:pr-1"
+        >
           <section aria-labelledby="market-title" className={panel}>
             <h2 id="market-title" className="mb-3 text-base text-fg">
               $ at risk by market
@@ -203,7 +207,7 @@ export default async function Page({ searchParams }: PageProps<"/ops/watchtower"
             </p>
             <TrendBars trend={summary.trend} />
           </section>
-        </div>
+        </aside>
       </div>
     </>
   );
