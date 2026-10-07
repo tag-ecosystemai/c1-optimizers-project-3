@@ -4,9 +4,10 @@ import { Button } from "./ui/Button";
 import { Heading } from "./ui/Heading";
 import { SectionFrame } from "./ui/SectionFrame";
 
-export function LiveFromDayOne() {
+/** Intro to the four roles; the Ask demo follows in RolesAndSignals. */
+export function Roles() {
   return (
-    <section className="relative isolate bg-secondary-background">
+    <section id="roles" className="relative isolate bg-secondary-background">
       <SectionFrame>
         <div className="h-32" />
       </SectionFrame>
@@ -14,11 +15,11 @@ export function LiveFromDayOne() {
       <SectionFrame>
         <div className="grid grid-cols-24 pt-22 lg:pt-28 xl:pt-38">
           <div className="col-[3/-3] flex flex-col items-start gap-6 lg:col-[2/-2] xl:items-center xl:text-center">
-            <Badge>Fast setup</Badge>
+            <Badge>Who it&apos;s for</Badge>
             <Heading
               className="max-w-[926px]"
-              title="Live from day one."
-              accent="Connect your store and carriers. RunOut maps your products, suppliers and routes, and starts watching before your next container leaves port."
+              title="Everyone asks the same agent."
+              accent="Ops, warehouses, distributors and your data team each get answers from their own slice of the data, and nothing outside it."
             />
             <Button href="#" variant="outline">Get started</Button>
           </div>

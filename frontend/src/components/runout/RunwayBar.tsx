@@ -1,6 +1,6 @@
 /**
  * The RunOut signature: stock burning down from today to the stockout date,
- * then a red gap until the shipment actually lands. No gap = arrives in time.
+ * then a red gap until the order actually lands. No gap = it arrives in time.
  */
 export function RunwayBar({
   coverDays,
@@ -18,7 +18,7 @@ export function RunwayBar({
     <div
       className="relative h-2 w-full rounded-full bg-line-faint"
       role="img"
-      aria-label={late ? `Stock runs out in ${coverDays} days, shipment arrives ${gap} days later` : `Shipment arrives ${coverDays - arrivalDays} days before stock runs out`}
+      aria-label={late ? `Stock runs out in ${coverDays} days, the order lands ${gap} days later` : `The order lands ${coverDays - arrivalDays} days before stock runs out`}
     >
       <div
         className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-fg/80 to-fg/25"

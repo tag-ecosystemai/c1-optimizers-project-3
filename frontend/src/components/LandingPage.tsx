@@ -2,10 +2,10 @@ import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { Divider } from "./Divider";
 import { Hero } from "./Hero";
-import { CustomerLogos } from "./CustomerLogos";
+import { Pipeline } from "./Pipeline";
 import { IntelligentSystem } from "./IntelligentSystem";
-import { LiveFromDayOne } from "./LiveFromDayOne";
-import { UniversalContext } from "./UniversalContext";
+import { Roles } from "./Roles";
+import { RolesAndSignals } from "./RolesAndSignals";
 
 /** The landing page, composed from its sections. */
 export function LandingPage() {
@@ -15,12 +15,12 @@ export function LandingPage() {
         <Navbar />
         <main>
           <Hero />
-          <CustomerLogos />
+          <Pipeline />
           <IntelligentSystem />
           <Divider />
-          <LiveFromDayOne />
+          <Roles />
           <Divider />
-          <UniversalContext />
+          <RolesAndSignals />
         </main>
         <Footer />
       </div>

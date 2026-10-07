@@ -11,11 +11,11 @@ export function IntelligentSystem() {
       <SectionFrame>
         <div className="relative grid grid-cols-24 border-b border-subtle-stroke pt-22 pb-16 lg:pt-28 lg:pb-18 xl:pt-38 xl:pb-20">
           <div className="col-[3/-3] flex flex-col items-start gap-6 lg:col-[2/-2]">
-            <Badge>Platform</Badge>
+            <Badge>How it works</Badge>
             <Heading
               className="max-w-[896px]"
-              title="The watchtower that never sleeps."
-              accent="Spots the typhoon at 2am. Flags the late container before your supplier does. Tells you what it costs before you ask."
+              title="Agents do the legwork. You make the call."
+              accent="RunOut scores every order, checks every distributor's stock and sends an agent to investigate each delay that will cause a stockout. Your team starts the day with decisions, not detective work."
               accentOnNewLine
             />
           </div>
