@@ -1,4 +1,5 @@
-// Records HeroStory (src/components/runout/HeroStory.tsx) into the hero videos in public/videos/.
+// Records HeroAgentMap (src/components/runout/HeroAgentMap.tsx) to video in public/videos/, for slides and social.
+// The site itself renders the live component; the videos are optional exports.
 // Needs: the dev server on :3000 (`npm run dev`), Google Chrome, and ffmpeg on PATH.
 // Usage: npm run video:hero
 //
@@ -10,8 +11,8 @@ import { mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 
 const FPS = 30;
-const SECONDS = 14; // one full loop (HeroStory LOOP)
-const POSTER_AT = 12.9; // approved-fix moment, shown before play and for reduced motion
+const SECONDS = 14; // one full loop (HeroAgentMap LOOP)
+const POSTER_AT = 12.9; // approved-fix moment
 const variants = [
   { out: "hero-story", width: 1152, height: 620, query: "" },
   { out: "hero-story-mobile", width: 560, height: 470, query: "?compact" },
@@ -19,6 +20,7 @@ const variants = [
 const root = path.resolve(import.meta.dirname, "..");
 const ffmpeg = (...args) => execFileSync("ffmpeg", ["-loglevel", "error", "-y", ...args], { stdio: "inherit" });
 
+mkdirSync(path.join(root, "public", "videos"), { recursive: true });
 const browser = await chromium.launch({ channel: "chrome" });
 for (const v of variants) {
   const frames = path.join(root, ".video-frames", v.out);

@@ -5,17 +5,12 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import { MotionConfig, motion } from "motion/react";
+import { STEPS } from "./Pipeline";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
-// Each nav item follows the <article id> it points at in IntelligentSystem.
-const items = [
-  { id: "watch-shipments", label: "Watch shipments" },
-  { id: "read-the-world", label: "Read the world" },
-  { id: "flag-delays-early", label: "Flag delays early" },
-  { id: "price-the-risk", label: "Price the risk" },
-  { id: "act-before-you-run-out", label: "Act before you run out" },
-];
+// Each nav item follows the <article id> it points at in IntelligentSystem (same list as the Pipeline strip).
+const items = STEPS;
 
 const spring = { type: "spring", stiffness: 420, damping: 38 } as const;
 

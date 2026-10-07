@@ -6,9 +6,9 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"], axes: ["opsz
 const mono = JetBrains_Mono({ variable: "--font-mono-face", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "RunOut — Know what runs out before it does",
+  title: "RunOut: catch late orders before your distributors run out",
   description:
-    "RunOut watches shipments and the world around them, flags delays early, and shows how much money is at risk.",
+    "RunOut predicts which orders will arrive late, checks whether each distributor will run out, and puts a costed fix in front of your operations team.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

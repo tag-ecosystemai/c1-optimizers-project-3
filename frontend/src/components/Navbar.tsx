@@ -3,8 +3,8 @@ import { ArrowRight } from "./ui/icons";
 import { Logo } from "./ui/Logo";
 
 const links = [
-  { label: "How it works", href: "#watch-shipments" },
-  { label: "Pricing", href: "#" },
+  { label: "How it works", href: "#predict-late-orders" },
+  { label: "Who it's for", href: "#roles" },
   { label: "Contact", href: "#" },
 ];
 
@@ -13,8 +13,8 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-90 border-b border-subtle-stroke bg-primary-background/95 backdrop-blur-md">
       <div className="dark flex h-(--site-header-banner-height) items-center bg-banner-background shadow-soft">
-        <a href="#flag-delays-early" className="group container flex items-center justify-center gap-1.5 text-[13px]/5 font-medium text-primary-foreground max-md:justify-start">
-          <span className="hover-underline truncate">Backtested on real shipments. See how RunOut flags a delay</span>
+        <a href="#find-the-cause" className="group container flex items-center justify-center gap-1.5 text-[13px]/5 font-medium text-primary-foreground max-md:justify-start">
+          <span className="hover-underline truncate">See how one late order becomes a decision your team can approve</span>
           <ArrowRight className="shrink-0 transition-transform duration-300 group-hover:translate-x-0.5" />
         </a>
       </div>
@@ -34,7 +34,7 @@ export function Navbar() {
           </ul>
         </div>
         <div className="flex gap-x-2.5">
-          <Button href="#" variant="outline" className="max-lg:hidden">
+          <Button href="/login" variant="outline" className="max-lg:hidden">
             Sign in
           </Button>
           <Button href="#">Get started</Button>

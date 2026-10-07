@@ -1,10 +1,11 @@
-// Mirrors cascade/impact.py RISK_BANDS: < $10k LOW, < $50k MEDIUM, else HIGH.
-export type RiskBand = "HIGH" | "MEDIUM" | "LOW" | "COVERED";
+// Severity bands, same as cascade/impact.py RISK_BANDS and docs/FRONTEND_SPEC.md §4.1:
+// NONE = no stockout projected, LOW < $100, MEDIUM $100–$500, HIGH ≥ $500.
+export type RiskBand = "HIGH" | "MEDIUM" | "LOW" | "NONE";
 
 export function riskBand(moneyAtRisk: number): RiskBand {
-  if (moneyAtRisk <= 0) return "COVERED";
-  if (moneyAtRisk < 10_000) return "LOW";
-  if (moneyAtRisk < 50_000) return "MEDIUM";
+  if (moneyAtRisk <= 0) return "NONE";
+  if (moneyAtRisk < 100) return "LOW";
+  if (moneyAtRisk < 500) return "MEDIUM";
   return "HIGH";
 }
 

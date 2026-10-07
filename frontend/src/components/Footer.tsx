@@ -1,10 +1,8 @@
-import { INTEGRATIONS } from "@/lib/integrations";
 import { Logo } from "./ui/Logo";
 
 const columns = [
-  { title: "Product", links: ["How it works", "Integrations", "Pricing", "Request a pilot"] },
-  { title: "Integrations", links: INTEGRATIONS.map((i) => i.name) },
-  { title: "Built for", links: ["E-commerce brands", "Consumer goods", "Distributors", "3PLs"] },
+  { title: "Product", links: ["How it works", "Get started", "Sign in"] },
+  { title: "Who it's for", links: ["Operations teams", "Warehouses", "Distributors", "Data teams"] },
   { title: "Company", links: ["About", "Contact"] },
   { title: "Resources", links: ["Help center", "System status"] },
 ];

@@ -204,6 +204,19 @@ body {
 }
 .logo-marquee:hover { animation-play-state: paused; }
 
+/* Hero: the pinned copy fades out as the product window scrolls up over it (scroll-driven, no JS).
+   Without support it simply stays put, as before. */
+@keyframes hero-copy-fade {
+  to { opacity: 0; filter: blur(6px); }
+}
+@supports (animation-timeline: scroll()) {
+  .hero-copy-fade {
+    animation: hero-copy-fade linear both;
+    animation-timeline: scroll(root);
+    animation-range: 12svh 55svh;
+  }
+}
+
 /* Hero pill: a light that travels around the border. --angle must be registered to animate. */
 @property --angle {
   syntax: "<angle>";
@@ -215,6 +228,10 @@ body {
 }
 .pill-beam { animation: pill-beam 4s linear infinite; }
 
+@keyframes hero-copy-fade-plain {
+  to { opacity: 0; }
+}
 @media (prefers-reduced-motion: reduce) {
   .logo-marquee, .pill-beam { animation: none; }
+  .hero-copy-fade { animation-name: hero-copy-fade-plain; } /* scroll-linked fade stays, no blur */
 }
