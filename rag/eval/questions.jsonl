@@ -1,0 +1,37 @@
+{"role": "ops", "q": "Who has to approve an action that costs $800?", "expected_any": ["RO-OPS-001"]}
+{"role": "ops", "q": "What happens when an action costs more than $1,000?", "expected_any": ["RO-OPS-001"]}
+{"role": "ops", "q": "How quickly must a HIGH severity incident be decided?", "expected_any": ["RO-OPS-001"]}
+{"role": "ops", "q": "When is it valid to dismiss an incident?", "expected_any": ["RO-OPS-001"]}
+{"role": "ops", "q": "What response do we use for a gap of 2 days when the money at risk is under 100 dollars?", "expected_any": ["RO-OPS-002"]}
+{"role": "ops", "q": "Which response is preferred when the gap is more than 10 days?", "expected_any": ["RO-OPS-002"]}
+{"role": "ops", "q": "How do we treat borderline gaps during peak season?", "expected_any": ["RO-OPS-002"]}
+{"role": "warehouse", "q": "How is limited stock shared between distributors when a warehouse cannot supply everyone?", "expected_any": ["RO-OPS-003"]}
+{"role": "ops", "q": "What is the minimum share of forecast demand a distributor receives during rationing?", "expected_any": ["RO-OPS-003"]}
+{"role": "ops", "q": "How long does a standard transfer between USCA and Africa take?", "expected_any": ["RO-OPS-004"]}
+{"role": "warehouse", "q": "How much cover must a donor warehouse keep after giving stock away?", "expected_any": ["RO-OPS-004"]}
+{"role": "ops", "q": "What does a priority air transfer cost?", "expected_any": ["RO-OPS-004"]}
+{"role": "ops", "q": "Is upgrading from Standard Class to Second Class a good way to speed up an order?", "expected_any": ["RO-OPS-005"]}
+{"role": "ops", "q": "What is the weekly expedite budget for each market?", "expected_any": ["RO-OPS-005"]}
+{"role": "ops", "q": "How often are First Class shipments late in the historical data?", "expected_any": ["RO-OPS-005"]}
+{"role": "warehouse", "q": "What is the minimum days of cover we should hold for every product?", "expected_any": ["RO-INV-001"]}
+{"role": "warehouse", "q": "How is safety stock calculated?", "expected_any": ["RO-INV-001"]}
+{"role": "ops", "q": "What conditions trigger a Level 2 disruption?", "expected_any": ["RO-OPS-006"]}
+{"role": "ops", "q": "How should we treat a delay prediction with a low risk score?", "expected_any": ["RO-DATA-001"]}
+{"role": "data", "q": "When does a model need to be formally reviewed?", "expected_any": ["RO-DATA-001"]}
+{"role": "ops", "q": "What should an operations incident briefing contain?", "expected_any": ["RO-COM-001"]}
+{"role": "warehouse", "q": "How fast must a warehouse manager acknowledge a HIGH alert?", "expected_any": ["RO-COM-003", "RO-OPS-001"]}
+{"role": "ops", "q": "What does days of cover mean and how is it calculated?", "expected_any": ["RO-REF-001"]}
+{"role": "ops", "q": "How is money at risk calculated?", "expected_any": ["RO-REF-001"]}
+{"role": "distributor", "q": "What does my risk level mean?", "expected_any": ["RO-REF-002", "RO-CUS-002"]}
+{"role": "distributor", "q": "How do I make a claim for a late order?", "expected_any": ["RO-CUS-001", "RO-CUS-002"]}
+{"role": "distributor", "q": "Why is my order late but I have no incident?", "expected_any": ["RO-CUS-002"]}
+{"role": "distributor", "q": "How quickly will I be told about a delay?", "expected_any": ["RO-CUS-001", "RO-CUS-002", "RO-COM-002"]}
+{"role": "ops", "q": "What should I check first for a delay in Pacific Asia during typhoon season?", "expected_any": ["RO-REG-004"]}
+{"role": "ops", "q": "What are common causes of delay in Europe?", "expected_any": ["RO-REG-002"]}
+{"role": "ops", "q": "What should we consider when transferring stock from the Africa depot?", "expected_any": ["RO-REG-005"]}
+{"role": "ops", "q": "How does the carnival period affect deliveries in Latin America?", "expected_any": ["RO-REG-003"]}
+{"role": "ops", "q": "How does hurricane season affect deliveries in the United States and Canada?", "expected_any": ["RO-REG-001"]}
+{"role": "distributor", "q": "Who approves actions that cost over $1,000 and what are the approval limits?", "expected_any": []}
+{"role": "distributor", "q": "What is the expedite cost schedule and the margin on my order?", "expected_any": []}
+{"role": "distributor", "q": "How are transfers between warehouses priced and what are the donor rules?", "expected_any": []}
+{"role": "warehouse", "q": "What is the approval authority for dismissing or escalating an incident?", "expected_any": []}

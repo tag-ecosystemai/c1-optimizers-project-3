@@ -9,9 +9,12 @@ scikit-learn
 dagshub
 mlflow
 
-# Optional — for faster training
 xgboost
 
 # Agent orchestration
 langgraph
 langfuse
+
+# RAG
+openai
+pyyaml
