@@ -1,0 +1,8 @@
+{
+  "_note": "Simulation choice: representative hubs per market, not real shipment routes.",
+  "Europe": [{"name": "Rotterdam", "lat": 51.92, "lon": 4.48}, {"name": "Hamburg", "lat": 53.55, "lon": 9.99}],
+  "USCA": [{"name": "Los Angeles", "lat": 34.05, "lon": -118.24}, {"name": "New York", "lat": 40.71, "lon": -74.01}],
+  "LATAM": [{"name": "Santos", "lat": -23.96, "lon": -46.33}, {"name": "Panama City", "lat": 8.98, "lon": -79.52}],
+  "Africa": [{"name": "Lagos", "lat": 6.45, "lon": 3.39}, {"name": "Durban", "lat": -29.86, "lon": 31.02}],
+  "Pacific Asia": [{"name": "Singapore", "lat": 1.26, "lon": 103.82}, {"name": "Sydney", "lat": -33.87, "lon": 151.21}]
+}
