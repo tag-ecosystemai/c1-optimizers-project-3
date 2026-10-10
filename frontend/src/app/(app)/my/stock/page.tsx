@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import type { MyStockRow } from "@/types/api";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { EmptyState } from "@/components/app/EmptyState";
+import { DISTRIBUTOR_STOCK_TERMS, Explainer } from "@/components/app/Explainer";
+import { InventorySummary } from "@/components/app/InventorySummary";
 import { PageHeader } from "@/components/app/PageHeader";
 import { SeverityBadge } from "@/components/app/SeverityBadge";
 import { asOfDate, getMyStock } from "@/lib/data";
@@ -17,7 +19,7 @@ function Sparkline({ values }: { values: number[] }) {
   const pts = values.map((v, i) => `${(i / (values.length - 1)) * 80},${22 - ((v - min) / (max - min || 1)) * 20}`).join(" ");
   return (
     <svg viewBox="0 0 80 24" className="h-6 w-20" role="img" aria-label={`Last ${values.length} weeks: ${num(min)} to ${num(max)} units a week, latest ${num(values[values.length - 1])}`}>
-      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-blue-500" />
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.5" className="text-brand" />
     </svg>
   );
 }
@@ -71,6 +73,8 @@ export default async function Page() {
   return (
     <>
       <PageHeader title="My stock" description={`How long each product will last at your forecast usage, lowest cover first. As of ${date(asOf)}.`} />
+      <InventorySummary items={rows} />
+      <Explainer terms={DISTRIBUTOR_STOCK_TERMS} />
       <DataTable
         columns={columns}
         rows={rows}

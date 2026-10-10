@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { BookOpen, Brain, ChevronDown, Gauge, History, ListChecks, Package, Search, Sparkles, type LucideIcon } from "lucide-react";
 import { asOfDate, getIncident, getIncidentGuidance } from "@/lib/data";
 import { date, dateTime, days, num, percent, usd } from "@/lib/format";
 import { load } from "@/lib/load";
@@ -11,6 +12,7 @@ import { EvidenceList } from "@/components/app/EvidenceList";
 import { PageHeader } from "@/components/app/PageHeader";
 import { SeverityBadge } from "@/components/app/SeverityBadge";
 import { ShapChart } from "@/components/app/ShapChart";
+import { ShapHelp } from "@/components/app/ShapHelp";
 import { StatusPill } from "@/components/app/StatusPill";
 import { AutoRefresh } from "@/components/ops/AutoRefresh";
 import { DecisionBar, DecisionProvider, OptionPicker } from "@/components/ops/Decision";
@@ -20,23 +22,32 @@ export async function generateMetadata({ params }: PageProps<"/ops/incidents/[id
   return { title: `Incident #${(await params).id}` };
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+/** One numbered, titled card per part of the page, so each block reads on its own. */
+function Section({ n, icon: Icon, title, hint, children }: { n: number; icon: LucideIcon; title: string; hint?: string; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-3 border-t border-line-faint pt-6">
-      <div>
-        <h2 className="text-base text-fg">{title}</h2>
-        {hint && <p className="mt-0.5 text-xs text-muted">{hint}</p>}
-      </div>
-      {children}
+    <section className="overflow-hidden rounded-2xl border border-line-subtle bg-white shadow-soft">
+      <header className="flex items-start gap-3 border-b border-line-subtle bg-surface px-5 py-4">
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-ink text-signal">
+          <Icon className="size-4" />
+        </span>
+        <div>
+          <h2 className="font-display text-lg font-semibold text-fg">
+            <span className="mr-2 text-muted">{n}.</span>
+            {title}
+          </h2>
+          {hint && <p className="mt-0.5 text-sm text-muted">{hint}</p>}
+        </div>
+      </header>
+      <div className="flex flex-col gap-3 p-5">{children}</div>
     </section>
   );
 }
 
 function Stat({ label, value, danger }: { label: string; value: ReactNode; danger?: boolean }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-0.5 rounded-lg bg-surface px-3 py-2">
       <dt className="text-xs text-muted">{label}</dt>
-      <dd className={`text-sm tabular-nums ${danger ? "font-medium text-risk-high" : "text-fg"}`}>{value}</dd>
+      <dd className={`font-display text-base tabular-nums ${danger ? "font-semibold text-risk-high" : "text-fg"}`}>{value}</dd>
     </div>
   );
 }
@@ -89,10 +100,7 @@ export default async function Page({ params }: PageProps<"/ops/incidents/[id]">)
       />
 
       <div className="flex flex-col gap-6">
-        <section aria-labelledby="impact-title" className="flex flex-col gap-4 rounded-xl border border-line-subtle p-4 md:p-5">
-          <h2 id="impact-title" className="text-base text-fg">
-            Impact
-          </h2>
+        <Section n={1} icon={Gauge} title="Impact" hint="When stock runs out, when the next delivery lands, and what the gap costs.">
           {c.stockout_date && c.first_arrival && (
             <CoverBar
               asOfDate={today}
@@ -107,7 +115,7 @@ export default async function Page({ params }: PageProps<"/ops/incidents/[id]">)
               }
             />
           )}
-          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <Stat label="Stockout date" value={c.stockout_date ? date(c.stockout_date) : "—"} danger />
             <Stat label="Next stock arrives" value={c.first_arrival ? date(c.first_arrival) : "—"} />
             <Stat label="Gap" value={c.gap_days != null ? days(c.gap_days) : "—"} danger={(c.gap_days ?? 0) > 0} />
@@ -115,9 +123,9 @@ export default async function Page({ params }: PageProps<"/ops/incidents/[id]">)
             <Stat label="Units short" value={num(c.units_short)} danger={c.units_short > 0} />
             {c.money_at_risk_usd !== undefined && <Stat label="$ at risk" value={usd(c.money_at_risk_usd)} danger />}
           </dl>
-        </section>
+        </Section>
 
-        <Section title="Agent briefing" hint="Written by the agent from the numbers above. The figures come from code; the model only words the summary.">
+        <Section n={2} icon={Sparkles} title="Agent briefing" hint="Written by the agent from the numbers above. The figures come from code; the model only words the summary.">
           {incident.briefing_text ? (
             <Briefing text={incident.briefing_text} />
           ) : (
@@ -125,7 +133,7 @@ export default async function Page({ params }: PageProps<"/ops/incidents/[id]">)
           )}
         </Section>
 
-        <Section title="What the agent found" hint="It checks weather and news near the market's hubs, and how late each shipping mode has been running.">
+        <Section n={3} icon={Search} title="What the agent found" hint="It checks weather and news near the market's hubs, and how late each shipping mode has been running.">
           {investigating ? (
             <div role="status" className="flex items-center gap-3 rounded-xl border border-dashed border-line p-4 text-sm text-muted">
               <span aria-hidden="true" className="size-2.5 shrink-0 animate-pulse rounded-full bg-blue-500 motion-reduce:animate-none" />
@@ -142,7 +150,7 @@ export default async function Page({ params }: PageProps<"/ops/incidents/[id]">)
           )}
         </Section>
 
-        <Section title="Recommended options" hint="Options are built from the policies (RO-OPS-002, 004, 005). The agent picks one and explains why; you decide.">
+        <Section n={4} icon={ListChecks} title="Recommended options" hint="Actions you could take, built from the company policies (RO-OPS-002, 004, 005). The agent picks one and explains why; you decide.">
           {options.length ? (
             <OptionPicker />
           ) : (
@@ -154,24 +162,26 @@ export default async function Page({ params }: PageProps<"/ops/incidents/[id]">)
         </Section>
 
         {factors.length > 0 && (
-          <Section title="Why the model thinks orders will be late" hint="Shown for the most at-risk order. Red adds delay, green reduces it.">
+          <Section n={5} icon={Brain} title="Why the model thinks orders will be late" hint="The SHAP explanation of the delay prediction, for the most at-risk order.">
+            <ShapHelp />
             <ShapChart factors={factors} riskScore={riskScore} />
           </Section>
         )}
 
-        <Section title="Policy guidance" hint="Passages from RunOut's policies and procedures that apply to this kind of incident. Upload more on the Knowledge page.">
+        <Section n={6} icon={BookOpen} title="Policy guidance" hint="Passages from RunOut's policies and procedures that apply to this kind of incident. Click one to read it.">
           {guidance && guidance.length ? (
-            <ul className="flex flex-col divide-y divide-line-faint rounded-xl border border-line-subtle bg-white">
-              {guidance.map((g) => (
-                <li key={`${g.doc_code}-${g.section}`} className="flex flex-col gap-1 p-3">
-                  <p className="text-sm text-fg">
-                    {g.title}{" "}
-                    <span className="text-xs text-muted">
-                      {g.doc_code}
-                      {g.section ? ` · ${g.section}` : ""}
-                    </span>
-                  </p>
-                  <p className="text-sm text-fg-2">{g.snippet}</p>
+            <ul className="flex flex-col gap-2">
+              {guidance.map((g, i) => (
+                <li key={`${g.doc_code}-${g.section}`}>
+                  <details open={i === 0} className="group rounded-xl border border-line-subtle bg-white">
+                    <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-sm">
+                      <span className="text-fg">
+                        {g.title} <span className="text-xs text-muted">{g.doc_code}{g.section ? ` · ${g.section}` : ""}</span>
+                      </span>
+                      <ChevronDown className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180" />
+                    </summary>
+                    <p className="border-t border-line-faint px-4 py-3 text-sm leading-6 text-fg-2">{g.snippet}</p>
+                  </details>
                 </li>
               ))}
             </ul>
@@ -180,7 +190,7 @@ export default async function Page({ params }: PageProps<"/ops/incidents/[id]">)
           )}
         </Section>
 
-        <Section title={`Affected orders (${orders.length})`}>
+        <Section n={7} icon={Package} title={`Affected orders (${orders.length})`} hint="The in-transit orders behind this shortage and when each is now expected to land.">
           {orders.length ? (
             <div className="overflow-x-auto rounded-xl border border-line-subtle">
               <table className="w-full text-left text-sm">
@@ -213,7 +223,7 @@ export default async function Page({ params }: PageProps<"/ops/incidents/[id]">)
           )}
         </Section>
 
-        <Section title="Activity">
+        <Section n={8} icon={History} title="Activity" hint="Every decision taken on this incident, newest first.">
           {decisions.length ? (
             <ol className="flex flex-col divide-y divide-line-faint rounded-xl border border-line-subtle">
               {[...decisions].reverse().map((d, i) => (
