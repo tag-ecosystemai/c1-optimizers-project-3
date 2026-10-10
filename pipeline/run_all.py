@@ -63,16 +63,22 @@ def main():
 
     lo = (d - dt.timedelta(days=30)).isoformat()
     t0 = dt.datetime.now(dt.timezone.utc)
+        # Skip scoring only if EVERY order in the 14-day window already has a prediction (a count > 0 is not enough:
+    # an earlier run for a previous date leaves a partial window, which made the cascade see almost no orders).
+    win_lo = (d - dt.timedelta(days=14)).isoformat()
+    day_after = (d + dt.timedelta(days=1)).isoformat()
+    n_orders = (sb.table("orders").select("order_id", count="exact").gte("order_date", win_lo).lt("order_date", day_after)
+                .limit(1).execute().count or 0)
     have = (sb.table("predictions").select("prediction_id", count="exact").eq("model_version", M1_VERSION)
-            .gte("as_of_date", (d - dt.timedelta(days=14)).isoformat()).lte("as_of_date", a.as_of).limit(1).execute().count or 0)
-    if have:
-        print(f"[m1_predictions] {have:,} predictions already exist for {M1_VERSION} in the window; skipping")
+            .gte("as_of_date", win_lo).lte("as_of_date", a.as_of).limit(1).execute().count or 0)
+    if n_orders and have >= n_orders:
+        print(f"[m1_predictions] {have:,} predictions cover all {n_orders:,} orders in the window; skipping")
         log(a.as_of, "m1_predictions", "skipped", t0, rows=have)
     else:
+        print(f"[m1_predictions] {have:,} predictions for {n_orders:,} orders in the window; scoring")
         cache = os.path.join(ROOT, "ml", "m1_delay_risk", "artifacts", "frame.pkl")
         extra = ["--cache", cache]
         stage(a.as_of, "m1_predictions", "ml/m1_delay_risk/score.py", ["--from-date", lo, "--to-date", a.as_of] + extra, env)
-
     stage(a.as_of, "cascade", "cascade/impact.py", ["--as-of", a.as_of, "--model-version", M1_VERSION], env)
     n_risk = sb.table("stock_risks").select("risk_id", count="exact").eq("as_of_date", a.as_of).limit(1).execute().count
     print(f"  stock risks for {a.as_of}: {n_risk}")

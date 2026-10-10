@@ -15,7 +15,8 @@ export function usd(n: number, opts: { compact?: boolean; decimals?: number } = 
 }
 
 /** `4.2 days`, `1 day`; `sign` adds a leading `+` to positive values. */
-export function days(n: number, opts: { sign?: boolean } = {}): string {
+export function days(n: number | null | undefined, opts: { sign?: boolean } = {}): string {
+  if (n === null || n === undefined) return "—";
   const text = n === 1 ? "1 day" : `${n.toFixed(1)} days`;
   return opts.sign && n > 0 ? `+${text}` : text;
 }
@@ -38,7 +39,8 @@ export function percent(n: number, digits = 0): string {
 }
 
 /** `1,240`; `digits` fixes the decimals (`num(0.8123, 2)` → `0.81`). */
-export function num(n: number, digits?: number): string {
+export function num(n: number | null | undefined, digits?: number): string {
+  if (n === null || n === undefined) return "—";
   return n.toLocaleString("en-US", digits === undefined ? undefined : { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }
 

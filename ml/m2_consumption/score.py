@@ -59,13 +59,38 @@ def prepare_features(df, feats):
     return X.fillna(0).astype(float)
 
 
+REG_NAME, ALIAS = "runout-m2-distributor-forecast", "champion"
+
+
+def load_registry_model():
+    """The M2 version you gave the 'champion' alias in the MLflow UI."""
+    import dagshub
+    import mlflow
+    import mlflow.sklearn
+    from mlflow.tracking import MlflowClient
+    dagshub.init(repo_owner="RunOut", repo_name="runout-ml", mlflow=True)
+    mv = MlflowClient().get_model_version_by_alias(REG_NAME, ALIAS)
+    model = mlflow.sklearn.load_model(f"models:/{REG_NAME}@{ALIAS}")
+    algo = (mv.tags or {}).get("algorithm", "model")
+    return model, FEATURES, f"m2-{algo}-v{mv.version}"
+
+
 def load_model(args):
-    """Return (model, feature_names, default_version_label)."""
+    """Return (model, feature_names, default_version_label).
+    Order: --baseline, --model-uri, --model-path or --use-local (pickle), else the registry champion,
+    falling back to the local pickle with a warning if there is no champion yet or the registry is unreachable."""
     if args.baseline:
         return None, FEATURES, "baseline-ma4w"
     if args.model_uri:
         import mlflow
         return mlflow.pyfunc.load_model(args.model_uri), FEATURES, "m2-mlflow"
+    if not (args.model_path or args.use_local):
+        try:
+            model, feats, label = load_registry_model()
+            print(f"Using the registry champion: {label}")
+            return model, feats, label
+        except Exception as e:
+            print(f"(No usable registry champion: {type(e).__name__}: {str(e)[:100]}. Falling back to the local file.)")
     path = args.model_path or DEFAULT_MODEL_PATH
     if not os.path.exists(path):
         raise SystemExit(f"Model file not found: {path}\n"
@@ -76,7 +101,6 @@ def load_model(args):
     if isinstance(obj, dict) and "regressor" in obj:
         return obj["regressor"], obj.get("feature_names", FEATURES), f"m2-pkl-{stamp}"
     return obj, FEATURES, f"m2-pkl-{stamp}"
-
 
 def run(args):
     sb = get_client()
@@ -147,4 +171,5 @@ if __name__ == "__main__":
     ap.add_argument("--model-version", help="label stored with the forecasts")
     ap.add_argument("--max-age-weeks", type=int, default=4,
                     help="ignore series whose latest week is older than this")
+    ap.add_argument("--use-local", action="store_true", help="use artifacts/model_by_distributor.pkl instead of the registry champion")
     run(ap.parse_args())

@@ -5,8 +5,8 @@ import { getIncident } from "@/lib/data";
 
 export const metadata: Metadata = { title: "Ask RunOut" };
 
-const STARTERS = ["Which incidents in LATAM are highest risk this week?", "Why is order 55123 delayed?", "Which warehouse has spare stock of cardio equipment?"];
-const INCIDENT_STARTERS = ["Why is this order late?", "What do you recommend, and what does it cost?", "Who is affected if we do nothing?"];
+const STARTERS = ["Which incidents in LATAM are highest risk this week?", "Which products will run out first, and where?", "Which warehouse has spare stock of cardio equipment?"];
+const INCIDENT_STARTERS = ["Why is this product at risk?", "What do you recommend, and what does it cost?", "Which distributors are affected if we do nothing?"];
 
 /** `?incident=<id>` (linked from incident detail) opens the chat with that incident as context. */
 export default async function Page({ searchParams }: { searchParams: Promise<{ incident?: string }> }) {
@@ -19,7 +19,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ i
         title="Ask RunOut"
         description={
           incident
-            ? `About incident #${incident.incident_id}: order #${incident.order.order_id}, ${incident.product.name}.`
+            ? `About incident #${incident.incident_id}: ${incident.product.name}, ${incident.warehouse.name ?? "warehouse"} (${incident.warehouse.market}).`
             : "Ask the agent about any market, order or incident."
         }
         back={incident ? { href: `/ops/incidents/${incident.incident_id}`, label: `Incident #${incident.incident_id}` } : undefined}

@@ -16,7 +16,7 @@ import type { HubLinkKey } from "@/types/api";
 
 export const metadata: Metadata = { title: "Observability" };
 
-const ORDER: HubLinkKey[] = ["langfuse", "dagshub", "grafana", "supabase"];
+const ORDER: HubLinkKey[] = ["langfuse", "dagshub", "supabase"];
 
 export default function Page() {
   return (

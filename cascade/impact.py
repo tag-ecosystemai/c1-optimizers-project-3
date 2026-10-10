@@ -50,7 +50,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from ingestion.common.client import get_client
 from cascade.db_utils import fetch_all, chunked, parse_date, default_as_of
 
-RISK_BANDS = ((100, "LOW"), (500, "MEDIUM"), (float("inf"), "HIGH"))
+RISK_BANDS = ((100, "LOW"), (200, "MEDIUM"), (float("inf"), "HIGH"))
 EXCLUDED_STATUSES = {"CANCELED", "SUSPECTED_FRAUD"}
 NO_DEMAND_COVER_DAYS = 999
 BATCH = 500
@@ -234,6 +234,15 @@ def run(args):
             continue
         groups[(o["warehouse_id"], o["product_id"])].append(oid)
 
+    # Simulated disruptions (sim_events): the signal M1 cannot see. Orders placed in a market inside an event
+    # window get the event's extra delay on top of M1's prediction.
+    events = [{**e, "_s": parse_date(e["start_date"]), "_e": parse_date(e["end_date"])}
+              for e in (sb.table("sim_events").select("market,start_date,end_date,extra_delay_days").execute().data or [])]
+
+    def event_delay(market, order_date):
+        return max([e["extra_delay_days"] or 0 for e in events
+                    if e["market"] == market and e["_s"] <= order_date <= e["_e"]] or [0])
+
     risk_rows, order_rows, no_inv = [], [], 0
     for (wid, pid), oids in groups.items():
         inv = inventory.get((wid, pid))
@@ -247,12 +256,17 @@ def run(args):
         cover = min(stock / daily, NO_DEMAND_COVER_DAYS) if daily > 0 else NO_DEMAND_COVER_DAYS
         stockout = as_of + timedelta(days=int(cover))
 
+        mkt = market_by_wh.get(wid)
+        extra = {oid: event_delay(mkt, orders[oid]["_od"]) for oid in oids}
         arrivals = {}
         for oid in oids:
             o = orders[oid]
-            arrivals[oid] = o["_od"] + timedelta(days=o["_sched"] + int(round(preds[oid]["delay"])))
+            arrivals[oid] = o["_od"] + timedelta(days=o["_sched"] + int(round(preds[oid]["delay"] + extra[oid])))
 
-        first_arrival = min(arrivals.values())
+        # Stock is waiting on the disrupted shipments: use the earliest of those when there are any.
+        hit = [a for oid, a in arrivals.items() if extra[oid] > 0]
+        first_arrival = min(hit) if hit else min(arrivals.values())
+
         gap_days = max(0, (first_arrival - stockout).days)
         group_short = int(round(gap_days * daily))
         weights = {oid: max(orders[oid].get("order_item_quantity") or 0, 1) for oid in oids}

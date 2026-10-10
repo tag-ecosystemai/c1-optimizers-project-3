@@ -8,7 +8,7 @@ load_dotenv()
 
 if os.environ.get("LANGFUSE_BASE_URL") and not os.environ.get("LANGFUSE_HOST"):
     os.environ["LANGFUSE_HOST"] = os.environ["LANGFUSE_BASE_URL"]
-    
+
 enabled = False
 
 
@@ -20,6 +20,11 @@ def _off():
     return observe, (lambda: None)
 
 
+def update_generation(**kw):
+    """Attach model, tokens and cost to the current Langfuse generation. No-op while tracing is off."""
+    pass
+
+
 observe, flush = _off()
 if os.environ.get("LANGFUSE_PUBLIC_KEY") and os.environ.get("LANGFUSE_SECRET_KEY"):
     try:
@@ -28,12 +33,27 @@ if os.environ.get("LANGFUSE_PUBLIC_KEY") and os.environ.get("LANGFUSE_SECRET_KEY
 
             observe = lambda name=None, **kw: _observe(name=name, **kw)
             flush = lambda: get_client().flush()
+
+            def update_generation(**kw):
+                get_client().update_current_generation(**kw)
+
         except ImportError:
             from langfuse.decorators import observe as _observe, langfuse_context   # SDK v2
 
             observe = lambda name=None, **kw: _observe(name=name, **kw)
             flush = lambda: langfuse_context.flush()
+
+            def update_generation(**kw):
+                u = kw.pop("usage_details", None)
+                if u:
+                    kw["usage"] = {"input": u["input"], "output": u["output"]}
+                kw.pop("cost_details", None)
+                langfuse_context.update_current_observation(**kw)
+
         enabled = True
     except Exception as e:
         print(f"(Langfuse tracing disabled: {type(e).__name__}: {str(e)[:80]})")
         observe, flush = _off()
+
+        def update_generation(**kw):
+            pass

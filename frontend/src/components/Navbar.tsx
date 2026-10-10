@@ -4,7 +4,6 @@ import { Logo } from "./ui/Logo";
 
 const links = [
   { label: "How it works", href: "#predict-late-orders" },
-  { label: "Who it's for", href: "#roles" },
   { label: "Contact", href: "#" },
 ];
 

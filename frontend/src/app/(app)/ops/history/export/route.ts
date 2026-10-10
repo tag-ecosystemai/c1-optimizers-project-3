@@ -8,7 +8,8 @@ import { historyParams } from "../params";
 const COLUMNS: [string, (d: DecisionLogItem) => string | number | null][] = [
   ["decided_at", (d) => d.decided_at],
   ["incident_id", (d) => d.incident_id],
-  ["order_id", (d) => d.order_id],
+  ["product", (d) => d.product?.name ?? null],
+  ["market", (d) => d.market ?? null],
   ["action", (d) => d.action],
   ["option_chosen", (d) => d.option_title],
   ["decided_by", (d) => d.by],

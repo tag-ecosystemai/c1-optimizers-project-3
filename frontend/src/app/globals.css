@@ -4,9 +4,9 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme static {
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-mono-face), ui-monospace, monospace;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
   /* Breakpoints the landing page was designed on. */
   --breakpoint-*: initial;
@@ -68,20 +68,25 @@
   --color-disabled-foreground: var(--color-white-700);
   --color-banner-background: var(--color-black-0);
 
-  /* RunOut product UI (components/runout). */
+  /* RunOut product UI */
   --color-page: #ffffff;
-  --color-fg: #1c1d1f;
-  --color-fg-2: #2d3238;
-  --color-muted: #6d7988;
-  --color-line-strong: #c9d0d9;
-  --color-line: #d2d8df;
-  --color-line-subtle: #e3e7ec;
-  --color-line-faint: #eceff3;
-  --color-surface: #f6f7f9;
-  --color-brand: #0f766e;
-  --color-risk-high: #dc2626;
-  --color-risk-med: #f59e0b;
-  --color-risk-low: #16a34a;
+  --color-canvas: #edf0ee;
+  --color-ink: #0b1f2a;
+  --color-ink-2: #13303f;
+  --color-signal: #2dd4bf;
+  --color-fg: #14212b;
+  --color-fg-2: #2b3a46;
+  --color-muted: #60707c;
+  --color-line-strong: #bcc6cd;
+  --color-line: #cbd3d8;
+  --color-line-subtle: #dce2e5;
+  --color-line-faint: #e8ecee;
+  --color-surface: #f3f5f4;
+  --color-brand: #0e7c73;
+  --color-risk-high: #d4351c;
+  --color-risk-med: #e8a317;
+  --color-risk-low: #5b7c99;
+  --color-risk-ok: #2e9e6b;
 
   /* Type scale: every size carries its own weight, leading and tracking. */
   --text-xs: 0.75rem;

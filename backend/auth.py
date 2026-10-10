@@ -11,20 +11,18 @@ from dataclasses import dataclass
 from typing import Optional
 
 import jwt
-from fastapi import Header, HTTPException, Depends
+from fastapi import Header, HTTPException, Depends, Request
 from supabase import create_client, Client
 
 JWT_SECRET = os.environ.get("JWT_SECRET", "runout-dev-secret-change-me")
-JWT_HOURS = 12
+JWT_HOURS = int(os.environ.get("JWT_HOURS", "12"))
 _client: Optional[Client] = None
 
 
 def data_client() -> Client:
-    global _client
-    if _client is None:
-        _client = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"])
-    return _client
-
+    # New client per call: a shared one keeps a pooled connection that Supabase
+    # closes when idle, which caused "WinError 10054" / ReadError on the next request.
+    return create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_SERVICE_KEY"])
 
 def hash_password(password: str) -> str:
     salt = secrets.token_hex(16)
@@ -84,6 +82,33 @@ def current_scope(authorization: str = Header(None)) -> Scope:
 def require_roles(*roles):
     """Depends(require_roles('ops')) returns the Scope or raises 403."""
     def dep(scope: Scope = Depends(current_scope)) -> Scope:
+        if scope.role not in roles:
+            raise HTTPException(status_code=403, detail="Not allowed for your role")
+        return scope
+    return dep
+
+def effective_scope(request: Request, scope: Scope = Depends(current_scope)) -> Scope:
+    """Ops/data "View as": header X-View-As (or ?view_as=) plus ?distributor_id= / ?warehouse_id= returns that account's scope.
+    For everyone else the header is ignored, so a real distributor can never widen their own access."""
+    kind = (request.headers.get("x-view-as") or request.query_params.get("view_as") or "").strip().lower()
+    if kind not in ("distributor", "warehouse") or scope.role not in ("ops", "data"):
+        return scope
+    raw = request.query_params.get(f"{kind}_id")
+    if not raw or not raw.isdigit():
+        raise HTTPException(422, f"{kind}_id is required to view as a {kind}")
+    table, col = ("distributors", "distributor_id") if kind == "distributor" else ("warehouses", "warehouse_id")
+    rows = data_client().table(table).select(f"{col},name").eq(col, int(raw)).limit(1).execute().data
+    if not rows:
+        raise HTTPException(404, f"Unknown {kind}")
+    return Scope(user_id=scope.user_id, email=scope.email, role=kind, display_name=rows[0]["name"],
+                 distributor_id=int(raw) if kind == "distributor" else None,
+                 warehouse_id=int(raw) if kind == "warehouse" else None)
+
+
+def require_view(*roles):
+    """Like require_roles, but uses the View-as scope. Depends(require_view('distributor')) accepts a real distributor
+    or ops/data viewing as one."""
+    def dep(scope: Scope = Depends(effective_scope)) -> Scope:
         if scope.role not in roles:
             raise HTTPException(status_code=403, detail="Not allowed for your role")
         return scope

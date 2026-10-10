@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
-import { authMode } from "@/lib/data/core";
 import { DEMO_PASSWORD, users } from "@/mocks/users";
 import { ROLE_LABEL } from "@/lib/auth/routes";
 import { LoginForm, type DemoAccount } from "./LoginForm";
@@ -10,19 +9,21 @@ export const metadata: Metadata = { title: "Sign in · RunOut", robots: { index:
 
 export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const { next } = await searchParams;
-  const demo: DemoAccount[] | null =
-    authMode() === "mock" ? users.map((u) => ({ email: u.email, name: u.display_name, role: ROLE_LABEL[u.role] })) : null;
+  const demo: DemoAccount[] = users.map((u) => ({ email: u.email, name: u.display_name, role: ROLE_LABEL[u.role] }));
 
   return (
-    <main className="flex flex-1 items-center justify-center bg-secondary-background px-4 py-12">
-      <div className="flex w-full max-w-sm flex-col gap-6">
-        <Link href="/" aria-label="RunOut homepage" className="self-center text-fg">
-          <Logo className="h-7 w-auto" />
+    <main className="relative flex min-h-screen flex-1 items-center justify-center overflow-hidden bg-canvas px-4 py-12">
+      <div className="pointer-events-none absolute -top-40 left-1/2 size-[520px] -translate-x-1/2 rounded-full bg-signal/20 blur-3xl" />
+      <div className="relative flex w-full max-w-md flex-col items-center gap-7">
+        <Link href="/" aria-label="RunOut homepage" className="text-fg">
+          <Logo className="h-8 w-auto" />
         </Link>
-        <div className="rounded-2xl border border-line-subtle bg-white p-6 shadow-soft">
-          <h1 className="mb-1 text-2xl text-fg">Sign in</h1>
-          <p className="mb-5 text-sm text-muted">Accounts are created by the RunOut team.</p>
-          <LoginForm next={typeof next === "string" ? next : undefined} demo={demo} demoPassword={demo ? DEMO_PASSWORD : undefined} />
+        <h1 className="text-center font-display text-3xl font-semibold leading-tight text-balance text-ink">
+          Catch late shipments <br className="hidden sm:block" />
+          before they <span className="text-brand">RunOut.</span>
+        </h1>
+        <div className="w-full rounded-2xl border border-line-subtle bg-white p-7 shadow-soft">
+          <LoginForm next={typeof next === "string" ? next : undefined} demo={demo} demoPassword={DEMO_PASSWORD} />
         </div>
       </div>
     </main>

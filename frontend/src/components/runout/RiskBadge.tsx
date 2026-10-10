@@ -2,10 +2,10 @@ import type { RiskBand } from "./risk";
 
 // Colours from docs/FRONTEND_SPEC.md §4.1. The text label carries the meaning too, never colour alone.
 const styles: Record<RiskBand, string> = {
-  HIGH: "bg-red-50 text-risk-high ring-red-200",
-  MEDIUM: "bg-amber-50 text-amber-700 ring-amber-200",
-  LOW: "bg-slate-50 text-slate-600 ring-slate-200",
-  NONE: "bg-green-50 text-risk-low ring-green-200",
+  HIGH: "bg-risk-high text-white ring-risk-high",
+  MEDIUM: "bg-[#f5c04a] text-[#3b2a00] ring-[#f5c04a]",
+  LOW: "bg-[#dbe5ed] text-[#2c4860] ring-[#dbe5ed]",
+  NONE: "bg-[#d9f0e3] text-[#1d6a45] ring-[#d9f0e3]",
 };
 
 const labels: Record<RiskBand, string> = { HIGH: "High", MEDIUM: "Medium", LOW: "Low", NONE: "Covered" };

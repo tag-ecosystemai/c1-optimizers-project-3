@@ -12,6 +12,7 @@ import httpx
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from backend.auth import data_client  # noqa: E402
 from cascade.db_utils import fetch_all  # noqa: E402
+from agent import tracing  # noqa: E402
 
 HUBS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "config", "market_hubs.json"), encoding="utf-8"))
 UA = {"User-Agent": "runout-student-project/1.0"}
@@ -84,11 +85,9 @@ def sim_event_items(market, start, end):
     return out
 
 # ---------------------------------------------------------------- weather
+@tracing.observe(name="tool_get_weather")
 def get_weather(market, start, end, as_of):
     """One evidence item per hub (max 2). Items carry a private `_severe` flag the caller removes."""
-    if dt.date.fromisoformat(end) >= SIM_FROM:
-        return [i for i in sim_event_items(market, start, end) if i["type"] == "weather"]
-
     out = []
     for hub in HUBS.get(market, [])[:2]:
         key = f"{hub['name']}|{start}|{end}"
@@ -117,7 +116,7 @@ def get_weather(market, start, end, as_of):
                                 + ("Above the severe-weather screen (50 mm rain or 75 km/h gust; assumed thresholds)."
                                    if severe else "No severe-weather signal.")),
                     "url": url, "timestamp": f"{end}T00:00:00Z", "_severe": bool(severe)})
-    return out
+    return out + [i for i in sim_event_items(market, start, end) if i["type"] == "weather"]
 
 
 # ---------------------------------------------------------------- news (Wikipedia Current Events)
@@ -147,12 +146,9 @@ def _wiki_lines(day: dt.date):
     _cache_put("news", "wikipedia-current-events", key, {"title": title, "lines": lines}, day.isoformat(), day.isoformat())
     return lines
 
-
+@tracing.observe(name="tool_search_news")
 def search_news(market, start, end, as_of, max_items=3):
     """Curated historical context from Wikipedia Current Events. A matching headline is context, never proof of cause."""
-    # inside search_news(market, start, end, as_of, max_items=3):
-    if dt.date.fromisoformat(end) >= SIM_FROM:
-        return [{k: v for k, v in i.items() if k != "_severe"} for i in sim_event_items(market, start, end) if i["type"] == "news"][:max_items]
     s, e = dt.date.fromisoformat(start), dt.date.fromisoformat(end)
     s = max(s, e - dt.timedelta(days=6))
     words = re.compile(MARKET_WORDS.get(market, "$^"), re.I)
@@ -164,10 +160,12 @@ def search_news(market, start, end, as_of, max_items=3):
                               "summary": line[:220], "url": f"https://en.wikipedia.org/wiki/Portal:Current_events/{day.year}_{day.strftime('%B')}_{day.day}",
                               "timestamp": f"{day.isoformat()}T00:00:00Z"})
         day -= dt.timedelta(days=1)
-    return items
+    sim = [{k: v for k, v in i.items() if k != "_severe"} for i in sim_event_items(market, start, end) if i["type"] == "news"]
+    return sim + items
 
 
 # ---------------------------------------------------------------- delay statistics from our own data
+@tracing.observe(name="tool_get_delay_stats")
 def get_delay_stats(warehouse_id, as_of, modes=None):
     """Late share and average delay per shipping mode for orders that had been delivered before as_of (120-day window)."""
     d = dt.date.fromisoformat(as_of)

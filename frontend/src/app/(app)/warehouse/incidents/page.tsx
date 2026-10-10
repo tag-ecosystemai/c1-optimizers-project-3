@@ -31,36 +31,41 @@ function columns(asOf: string): Column<IncidentListItem>[] {
       cell: (i) => (
         <span className="flex flex-col whitespace-nowrap">
           <span className="text-fg">#{i.incident_id}</span>
-          <span className="text-xs text-muted">Order #{i.order_id}</span>
+          <span className="text-xs text-muted">
+            {num(i.orders_affected)} {i.orders_affected === 1 ? "order" : "orders"}
+          </span>
           {/* Phones: the Action column is hidden, so the button lives here. */}
           <span className="mt-1.5 md:hidden">
-            <AcknowledgeButton incidentId={i.incident_id} orderId={i.order_id} acknowledged={i.acknowledged_by_warehouse} />
+            <AcknowledgeButton incidentId={i.incident_id} acknowledged={i.acknowledged_by_warehouse} />
           </span>
         </span>
       ),
     },
     {
       key: "what",
-      header: "Distributor · product",
+      header: "Product",
       cell: (i) => (
         <span className="flex flex-col sm:min-w-40">
-          <span className="text-fg">{i.distributor.name}</span>
-          <span className="text-xs text-muted">{i.product.name}</span>
+          <span className="text-fg">{i.product.name}</span>
+          {i.investigating && <span className="text-xs text-muted">Investigating…</span>}
         </span>
       ),
     },
-    { key: "delay", header: "Delay", sortKey: "predicted_delay_days", align: "right", hideBelow: "md", cell: (i) => <span className="whitespace-nowrap">{days(i.predicted_delay_days, { sign: true })}</span> },
+    { key: "delay", header: "Max delay", sortKey: "predicted_delay_days", align: "right", hideBelow: "md", cell: (i) => <span className="whitespace-nowrap">{days(i.max_predicted_delay_days, { sign: true })}</span> },
     {
       key: "stockout",
       header: "Stockout",
       sortKey: "stockout_date",
       hideBelow: "sm",
-      cell: (i) => (
-        <span className="flex flex-col whitespace-nowrap">
-          <span>{date(i.stockout_date)}</span>
-          <span className="text-xs text-muted">{relativeToAsOf(i.stockout_date, asOf)}</span>
-        </span>
-      ),
+      cell: (i) =>
+        i.stockout_date ? (
+          <span className="flex flex-col whitespace-nowrap">
+            <span>{date(i.stockout_date)}</span>
+            <span className="text-xs text-muted">{relativeToAsOf(i.stockout_date, asOf)}</span>
+          </span>
+        ) : (
+          "—"
+        ),
     },
     { key: "short", header: "Units short", sortKey: "units_short", align: "right", hideBelow: "lg", cell: (i) => num(i.units_short) },
     { key: "money", header: "At risk", sortKey: "money_at_risk_usd", align: "right", hideBelow: "md", cell: (i) => (i.money_at_risk_usd !== undefined ? usd(i.money_at_risk_usd) : "—") },
@@ -74,7 +79,7 @@ function columns(asOf: string): Column<IncidentListItem>[] {
         </span>
       ),
     },
-    { key: "ack", header: "Action", align: "right", hideBelow: "md", cell: (i) => <AcknowledgeButton incidentId={i.incident_id} orderId={i.order_id} acknowledged={i.acknowledged_by_warehouse} /> },
+    { key: "ack", header: "Action", align: "right", hideBelow: "md", cell: (i) => <AcknowledgeButton incidentId={i.incident_id} acknowledged={i.acknowledged_by_warehouse} /> },
   ];
 }
 
@@ -95,7 +100,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
         description="Late orders that put your distributors' stock at risk. Ops decides the fix; you can acknowledge that your warehouse has seen it."
       />
       <FilterBar
-        search={{ param: "q", placeholder: "Search order, distributor or product" }}
+        search={{ param: "q", placeholder: "Search product" }}
         filters={[
           { param: "status", label: "Status", options: INCIDENT_STATUS_OPTIONS },
           { param: "severity", label: "Severity", options: SEVERITY_OPTIONS },

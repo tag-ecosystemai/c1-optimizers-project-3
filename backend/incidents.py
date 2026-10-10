@@ -10,13 +10,14 @@ Distributor responses never contain money, evidence, SHAP, options, decisions or
 """
 import os
 import json
+import datetime as _dt
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
-from backend.auth import Scope, current_scope, data_client
+from backend.auth import Scope, current_scope, data_client, effective_scope
 from cascade.db_utils import fetch_all
 
 router = APIRouter(prefix="/api")
@@ -45,14 +46,11 @@ def _in(sb, table, cols, key, values, page=100):
 
 
 def resolve_as_of(sb, as_of):
+    """Use the date the caller asked for; otherwise the newest date the pipeline has produced."""
     if as_of:
         return as_of
-    env = os.environ.get("RUNOUT_AS_OF")
-    if env:
-        return env
     r = sb.table("stock_risks").select("as_of_date").order("as_of_date", desc=True).limit(1).execute().data
     return r[0]["as_of_date"] if r else None
-
 
 def own_cascade_rows(sb, distributor_id, as_of=None):
     """This distributor's cascade rows (one per in-transit order), optionally for one date."""
@@ -83,7 +81,6 @@ def _briefing(inc, scope):
         b = b.get(str(scope.distributor_id))
     return b
 
-
 # ---------------------------------------------------------------- list
 @router.get("/incidents")
 def list_incidents(
@@ -91,8 +88,9 @@ def list_incidents(
     warehouse_id: Optional[int] = None, product_id: Optional[int] = None, q: Optional[str] = None,
     distributor_id: Optional[int] = None,            # ops/data only; ignored for other roles
     as_of: Optional[str] = None,
+    sort: Optional[str] = None,                       # field name, "-" prefix for descending (see SORT_KEYS)
     limit: int = Query(50, ge=1, le=200), cursor: Optional[str] = None,
-    scope: Scope = Depends(current_scope),
+    scope: Scope = Depends(effective_scope),
 ):
     sb = data_client()
     as_of = resolve_as_of(sb, as_of)
@@ -111,9 +109,11 @@ def list_incidents(
     if who is not None:
         own = {}
         for c in own_cascade_rows(sb, who, as_of):
-            d = own.setdefault(c["risk_id"], {"orders": 0, "units": 0})
+            d = own.setdefault(c["risk_id"], {"orders": 0, "units": 0, "delay": None})
             d["orders"] += 1
             d["units"] += int(c["units_short"] or 0)
+            if c["predicted_delay_days"] is not None:
+                d["delay"] = max(float(c["predicted_delay_days"]), d["delay"] if d["delay"] is not None else -1e9)
     if scope.role == "distributor" and own is None:
         return empty
 
@@ -143,11 +143,13 @@ def list_incidents(
             "product": {"id": i["product_id"], "name": prods.get(i["product_id"])},
             "stockout_date": r["stockout_date"], "first_arrival": r["first_arrival"],
             "days_of_cover": r["days_of_cover"], "created_at": i["created_at"],
+            "investigating": i["status"] == "open" and not i.get("probable_cause"),
         }
         if scope.role == "distributor":
             mine = own[i["risk_id"]]
             item.update({"warehouse": {"market": w.get("market")},
-                         "orders_affected": mine["orders"], "units_short": mine["units"]})
+                         "orders_affected": mine["orders"], "units_short": mine["units"],
+                         "max_predicted_delay_days": mine["delay"]})
         else:
             item.update({"warehouse": {"id": i["warehouse_id"], "name": w.get("name"), "market": w.get("market")},
                          "orders_affected": r["orders_affected"],
@@ -155,15 +157,72 @@ def list_incidents(
                          "units_short": r["units_short"], "money_at_risk_usd": r["money_at_risk_usd"]})
         items.append(item)
 
-    if scope.role == "distributor":
-        items.sort(key=lambda x: (x["stockout_date"] or "9999", -SEV_RANK.get(x["severity"], 0)))
-    else:
-        items.sort(key=lambda x: (-float(x["money_at_risk_usd"] or 0), x["incident_id"]))
+    if scope.role != "distributor":
+        need_all = (sort or "").lstrip("-") == "predicted_delay_days"       # delay is only needed for every row when sorting by it
+        if need_all:
+            _add_max_delay(sb, items, incs)
+    _sort_items(items, sort, scope.role)
     start = int(cursor) if cursor and cursor.isdigit() else 0
     page = items[start:start + limit]
+    if scope.role != "distributor":
+        if not (sort or "").lstrip("-") == "predicted_delay_days":
+            _add_max_delay(sb, page, incs)
+        ids = [x["incident_id"] for x in page]
+        acked = {d["incident_id"] for d in _in(sb, "incident_decisions", "incident_id,action", "incident_id", ids)
+                 if d["action"] == "acknowledged"}
+        for x in page:
+            x["acknowledged_by_warehouse"] = x["incident_id"] in acked
     return {"items": page, "next_cursor": str(start + limit) if start + limit < len(items) else None,
-            "as_of_date": as_of}
+            "prev_cursor": str(max(0, start - limit)) if start > 0 else None,
+            "total": len(items), "as_of_date": as_of}
 
+
+SORT_KEYS = {"money_at_risk_usd", "predicted_delay_days", "stockout_date", "units_short", "created_at", "severity"}
+
+
+def max_delays(sb, risk_ids):
+    """Largest predicted delay (days) among the orders of each risk."""
+    out, ids = {}, list(dict.fromkeys(risk_ids))
+    for i in range(0, len(ids), 50):
+        chunk = ids[i:i + 50]
+        for c in fetch_all(sb, "cascade_results", "cascade_id,risk_id,predicted_delay_days", "cascade_id",
+                           apply=lambda qq, ch=chunk: qq.in_("risk_id", ch)):
+            if c["predicted_delay_days"] is not None:
+                v = float(c["predicted_delay_days"])
+                out[c["risk_id"]] = max(v, out.get(c["risk_id"], -1e9))
+    return out
+
+
+def _add_max_delay(sb, items, incs):
+    risk_of = {i["incident_id"]: i["risk_id"] for i in incs}
+    md = max_delays(sb, [risk_of[x["incident_id"]] for x in items])
+    for x in items:
+        x["max_predicted_delay_days"] = md.get(risk_of[x["incident_id"]])
+
+
+def _sort_items(items, sort, role):
+    key, desc = (sort or "").lstrip("-"), (sort or "").startswith("-")
+    if key not in SORT_KEYS or (role == "distributor" and key == "money_at_risk_usd"):
+        if role == "distributor":
+            items.sort(key=lambda x: (x["stockout_date"] or "9999", -SEV_RANK.get(x["severity"], 0)))
+        else:
+            items.sort(key=lambda x: (-float(x["money_at_risk_usd"] or 0), x["incident_id"]))
+        return
+    field = "max_predicted_delay_days" if key == "predicted_delay_days" else key
+
+    def val(x):
+        v = x.get(field)
+        if v is None:
+            return None
+        if key == "severity":
+            return SEV_RANK.get(v, 0)
+        if key in ("stockout_date", "created_at"):
+            return str(v)
+        return float(v)
+    present = [x for x in items if val(x) is not None]
+    missing = [x for x in items if val(x) is None]
+    present.sort(key=lambda x: (val(x), x["incident_id"]), reverse=desc)
+    items[:] = present + missing
 
 # ---------------------------------------------------------------- detail
 FEATURE_LABELS = {"shipping_mode_encoded": "Shipping mode", "order_item_quantity": "Order quantity", "order_item_total": "Order value",
@@ -175,12 +234,12 @@ def shap_display(items):
     out = []
     for f in items or []:
         c = float(f.get("contribution", f.get("contribution_days", 0)) or 0)
-        out.append({"feature": f["feature"], "label": FEATURE_LABELS.get(f["feature"], f["feature"]), "contribution_days": round(c, 3),
+        out.append({"feature": f["feature"], "label": FEATURE_LABELS.get(f["feature"], f["feature"]), "contribution": round(c, 3), "contribution_days": round(c, 3),
                     "impact": "increases predicted delay" if c > 0 else "decreases predicted delay"})
     return out
 
 @router.get("/incidents/{incident_id}")
-def get_incident(incident_id: int, scope: Scope = Depends(current_scope)):
+def get_incident(incident_id: int, scope: Scope = Depends(effective_scope)):
     sb = data_client()
     rows = sb.table("incidents").select(INC_COLS).eq("incident_id", incident_id).limit(1).execute().data
     if not rows:
@@ -258,11 +317,16 @@ def get_incident(incident_id: int, scope: Scope = Depends(current_scope)):
                     "note": "Contributions are in days, relative to the average predicted delay. Shipping mode dominates because the model barely uses the other inputs."}
     out["shap"] = shap
 
-    decs = (sb.table("incident_decisions").select("action,selected_option_id,note,decided_at,decided_by")
+    decs = (sb.table("incident_decisions").select("decision_id,action,selected_option_id,note,decided_at,decided_by")
             .eq("incident_id", incident_id).order("decided_at", desc=True).execute().data)
     names = {u["user_id"]: u["display_name"]
              for u in _in(sb, "app_users", "user_id,display_name", "user_id", [d["decided_by"] for d in decs])}
     out["response_targets"] = RESPONSE_TARGETS.get(inc["severity"])
+    out["decisions"] = [{"decision_id": d["decision_id"], "action": d["action"], "by": names.get(d["decided_by"]),
+                         "note": d["note"], "selected_option_id": d["selected_option_id"], "decided_at": d["decided_at"]}
+                        for d in decs]
+    out["acknowledged_by_warehouse"] = any(d["action"] == "acknowledged" for d in decs)
+    out["investigating"] = inc["status"] == "open" and not inc.get("probable_cause")
     
     return out
 

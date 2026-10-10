@@ -34,7 +34,7 @@ TRANSFER_DAYS = {frozenset(k): v for k, v in {
     ("USCA", "Africa"): 14, ("LATAM", "Pacific Asia"): 14, ("LATAM", "Africa"): 14}.items()}
 
 # RO-OPS-002
-NOTIFY_ONLY_BELOW_USD = 100.0
+NOTIFY_ONLY_BELOW_USD = 12.0
 COVERAGE_TARGET = 0.80
 LOW_CONFIDENCE_SCORE, LOW_CONFIDENCE_UNITS = 0.40, 50
 PEAK_MONTHS = (10, 11, 12)
