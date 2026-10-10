@@ -8,3 +8,4 @@ docs/
 # Browser-test screenshots
 .playwright-mcp/
 README.md
+data/
