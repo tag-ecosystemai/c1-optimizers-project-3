@@ -6,6 +6,8 @@ import { listWarehouseInventory } from "@/lib/data";
 import { date, days, num } from "@/lib/format";
 import { DataTable, type Column } from "@/components/app/DataTable";
 import { EmptyState } from "@/components/app/EmptyState";
+import { Explainer, INVENTORY_TERMS } from "@/components/app/Explainer";
+import { InventorySummary } from "@/components/app/InventorySummary";
 import { LoadError } from "@/components/app/LoadError";
 import { FilterBar } from "@/components/app/FilterBar";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -59,7 +61,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Sea
 }
 
 async function Inventory({ params }: { params: InventoryListParams }) {
-    // ponytail: categories come from one unfiltered 100-row call; add a categories endpoint if a warehouse stocks more.
+  // ponytail: categories come from one unfiltered 100-row call; add a categories endpoint if a warehouse stocks more.
   const data = await load(() => Promise.all([listWarehouseInventory(params), listWarehouseInventory({ limit: 100 })]));
   if (!data) return <LoadError what="inventory" />;
   const [page, all] = data;
@@ -67,6 +69,8 @@ async function Inventory({ params }: { params: InventoryListParams }) {
   const filtered = !!(params.category || params.severity || params.q);
   return (
     <>
+      <InventorySummary items={all.items} />
+      <Explainer terms={INVENTORY_TERMS} />
       <FilterBar
         search={{ param: "q", placeholder: "Search products" }}
         filters={[

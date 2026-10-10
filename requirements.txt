@@ -1,20 +1,31 @@
+# --- Web API (backend/) ---
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+pyjwt
+httpx
 requests
+
+# --- Database ---
 supabase
 python-dotenv
+
+# --- Data and ML ---
 pandas
 numpy
 scikit-learn
-
-# MLflow / DagsHub
-dagshub
-mlflow
-
 xgboost
+shap
 
-# Agent orchestration
+# --- Experiment tracking and model registry (MLflow on DagsHub) ---
+mlflow
+dagshub
+
+# --- Agent, LLM and observability ---
 langgraph
 langfuse
-
-# RAG
 openai
+
+# --- RAG documents (front matter) ---
 pyyaml
