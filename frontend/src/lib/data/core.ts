@@ -48,11 +48,16 @@ export async function api<T>(scope: Scope, path: string, opts: { query?: Query; 
 
   const res = await fetch(url, {
     method: opts.method ?? "GET",
-    headers: { Authorization: `Bearer ${scope.session.token}`, ...(opts.body !== undefined && { "Content-Type": "application/json" }) },
+    headers: {
+      Authorization: `Bearer ${scope.session.token}`,
+      // Tells the API this is a View-as, so ops sees exactly what that warehouse or distributor sees.
+      ...(v && { "X-View-As": v.kind }),
+      ...(opts.body !== undefined && { "Content-Type": "application/json" }),
+    },
     body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
     cache: "no-store",
   });
-  if (res.status === 401) redirect("/login");
+  if (res.status === 401) redirect("/auth/expired");
   if (res.status === 404) return null;
   if (!res.ok) {
     const detail = await res.json().then((b: { detail?: string }) => b.detail, () => undefined);

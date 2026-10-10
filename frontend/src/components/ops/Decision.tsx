@@ -61,7 +61,7 @@ const primary = `${btn} bg-black-200 text-white hover:bg-black-400`;
 const secondary = `${btn} border border-white-800 bg-white text-black-400 hover:bg-white-300`;
 
 const copy: Record<Action, { title: string; confirm: string; note?: string }> = {
-  approve: { title: "Approve this option?", confirm: "Approve" },
+  approve: { title: "Approve this option?", confirm: "Approve", note: "Note (required if the cost is higher than the money at risk)" },
   dismiss: { title: "Dismiss this incident?", confirm: "Dismiss", note: "Why are you dismissing it?" },
   escalate: { title: "Escalate this incident?", confirm: "Escalate", note: "What should the escalation owner know?" },
 };
@@ -133,7 +133,7 @@ export function DecisionBar() {
         confirmLabel={c?.confirm}
         tone={action === "dismiss" ? "danger" : "default"}
         noteLabel={c?.note}
-        noteRequired={!!c?.note}
+        noteRequired={action !== "approve" && !!c?.note}
         pending={pending}
         error={error}
         onConfirm={confirm}

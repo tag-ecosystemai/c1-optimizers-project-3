@@ -149,7 +149,7 @@ def ops_text(f, cause_s, reason_s):
     lines = [f"({o['number']}) {o['title']}: ${o['cost_usd']:,.2f}, covers {u(o['units_covered'])}" for o in f["options"][:4]]
     reason = (reason_s or "").strip().rstrip(".")
     return (f"**Decision needed:** Approve, dismiss or escalate incident {f['incident_id']} ({f['severity']}).\n\n"
-            f"**Situation:** {f['orders_affected']} delayed orders from {f['distributors_affected']} distributors for {f['product_name']} are heading to "
+            f"**Situation:** {f['orders_affected']} delayed {'order' if f['orders_affected'] == 1 else 'orders'} from {f['distributors_affected']} {'distributor' if f['distributors_affected'] == 1 else 'distributors'} for {f['product_name']} {'is' if f['orders_affected'] == 1 else 'are'} heading to "
             f"{f['warehouse_name']} ({f['market']}). The longest predicted delay is {f['max_predicted_delay_days']} days, and the first order is projected "
             f"to arrive on {nd(f['first_arrival'])}.\n\n"
             f"**Impact:** {f['warehouse_name']} has {f['days_of_cover']} days of cover and is expected to run out on {nd(f['stockout_date'])}. "

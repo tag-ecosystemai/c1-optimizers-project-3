@@ -56,6 +56,8 @@ export function OptionCard({
           )}
         </div>
         <p className="text-xs text-muted">{option.description}</p>
+        {option.rationale && <p className="text-xs text-fg-2">{option.rationale}</p>}
+        {option.cost_exceeds_money_at_risk && <p className="text-xs font-medium text-risk-high">⚠ Costs more than the money at risk</p>}
         <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
           {facts.map(([k, v]) => (
             <div key={k} className="flex gap-1">

@@ -123,7 +123,7 @@ def build_options(ctx, donors):
         if b:
             moved = min(covered_units(b[0]), sum(int(o.get("quantity") or 0) for o in unshipped))
             if moved > 0:
-                opts.append({"type": "split_shipment", "title": f"Split shipment: send {moved} units by a faster mode",
+                opts.append({"type": "split_shipment", "title": f"Split shipment: send {moved} {'unit' if moved == 1 else 'units'} by a faster mode",
                              "description": "Only the urgent units travel faster; the rest follow the original plan.",
                              "cost_usd": round(P.SPLIT["cost_share"] * moved * price, 2), "eta_days": (b[2] - as_of).days,
                              "units_covered": moved, "order_ids": [o["order_id"] for o in unshipped], "recommended": False})

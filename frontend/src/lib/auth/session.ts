@@ -6,7 +6,7 @@ import type { Role } from "@/types/api";
 import { homeFor, ROLE_PREFIX, canAccess, type ViewAs } from "./routes";
 
 export const SESSION_COOKIE = "session";
-const MAX_AGE_S = 7 * 24 * 60 * 60;
+const MAX_AGE_S = 12 * 60 * 60;
 
 /** What the signed session cookie carries. Scope (distributor/warehouse) always comes from here, never the client. */
 export interface Session {

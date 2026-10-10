@@ -1,24 +1,24 @@
 """
-RunOut v2 - Simulate recent orders (default 2026-07-01 to 2026-10-07)
+RunOut v2 - Simulate recent orders (default 2026-07-01 to 2026-10-09)
 Location: sim/simulate_2026.py
 
 WHY: the DataCo history ends in January 2018. The demo is clearer with recent dates, so this script creates NEW SIMULATED orders.
 HOW: for each market and day it resamples real historical orders of that market (so product mix, shipping modes, quantities,
-prices and delay patterns stay realistic), gives them new ids and the new date, and adds a few clearly SIMULATED disruption
-events (table sim_events) that lengthen the real delays of orders in their market, window and shipping modes.
-It also writes the M1 feature rows (ml_order_features) and M2 weekly usage rows (distributor_usage) for the new orders,
-exactly as the original builders do, but only for the new window (the builders would zero-fill 2018 to 2026 otherwise).
+prices and delay patterns stay realistic), gives them new ids and the new date, and adds SIMULATED disruption events
+(table sim_events) that lengthen the real delays of orders in their market, window and shipping modes.
+From --heavy-from on, each market gets many more orders a day and each order's quantity and money are multiplied by a skewed
+factor (1x to 35x), so that some stock risks are large (HIGH severity) and others small.
+It also writes the M1 feature rows (ml_order_features) and M2 weekly usage rows (distributor_usage) for the new orders.
 
 Everything created has data_co_order_id >= 9,000,000, so it is recognisable and replaced on every run. These orders are SIMULATED
-and must be described as simulated wherever they are shown. Models M1 and M2 were trained on 2015 to 2017, so these dates are
-out of sample in time.
+and must be described as simulated wherever they are shown.
 
 Usage
     python sim/simulate_2026.py --dry-run                # build and summarise in memory, write nothing
     python sim/simulate_2026.py                          # write (replaces any earlier simulated orders)
-    python sim/simulate_2026.py --per-market-day 120 --seed 11
-Then, for a demo date:
-    python pipeline/run_all.py --as-of 2026-09-30 --min-cover 0.2 --max-cover 1.5 --investigate
+    python sim/simulate_2026.py --heavy-per-market-day 600
+Then:
+    python pipeline/run_all.py --as-of 2026-10-09 --min-cover 0.2 --max-cover 3 --investigate --limit 40
 """
 import os
 import sys
@@ -44,16 +44,19 @@ POOL_CACHE = os.path.join(ROOT, "sim", "pool.pkl")
 EVENTS = [
     {"market": "Europe", "event_type": "port_congestion", "title": "Port congestion at Rotterdam",
      "description": "Container backlog at the port is slowing ground and sea freight into northern Europe",
-     "start_date": date(2026, 9, 14), "end_date": date(2026, 9, 28), "shipping_modes": ["Standard Class", "Second Class"], "extra_delay_days": 3},
+     "start_date": date(2026, 9, 24), "end_date": date(2026, 10, 9), "shipping_modes": ["Standard Class", "Second Class"], "extra_delay_days": 5},
     {"market": "Pacific Asia", "event_type": "typhoon", "title": "Typhoon near Singapore and the South China Sea",
      "description": "Severe winds and rain closed ports and grounded flights for several days",
-     "start_date": date(2026, 8, 20), "end_date": date(2026, 8, 27), "shipping_modes": None, "extra_delay_days": 3},
+     "start_date": date(2026, 9, 30), "end_date": date(2026, 10, 7), "shipping_modes": None, "extra_delay_days": 6},
     {"market": "USCA", "event_type": "strike", "title": "Dockworker strike on the US West Coast",
      "description": "A walkout at several container terminals is delaying unloading and onward trucking",
-     "start_date": date(2026, 9, 1), "end_date": date(2026, 9, 15), "shipping_modes": ["Standard Class"], "extra_delay_days": 2},
-    {"market": "LATAM", "event_type": "customs_delay", "title": "Customs inspection backlog in Brazil",
-     "description": "Extra inspections are holding consignments at the border for several days",
-     "start_date": date(2026, 7, 15), "end_date": date(2026, 7, 30), "shipping_modes": ["Standard Class", "Second Class"], "extra_delay_days": 2},
+     "start_date": date(2026, 9, 25), "end_date": date(2026, 10, 9), "shipping_modes": ["Standard Class", "Second Class"], "extra_delay_days": 5},
+    {"market": "LATAM", "event_type": "storm", "title": "Severe storms across southern Brazil",
+     "description": "Flooding and landslides closed highways and slowed port operations at Santos",
+     "start_date": date(2026, 9, 28), "end_date": date(2026, 10, 8), "shipping_modes": None, "extra_delay_days": 5},
+    {"market": "Africa", "event_type": "strike", "title": "Port workers' strike at Lagos",
+     "description": "A labour dispute is halting container handling and delaying inland distribution",
+     "start_date": date(2026, 9, 26), "end_date": date(2026, 10, 9), "shipping_modes": ["Standard Class", "Second Class", "First Class"], "extra_delay_days": 6},
 ]
 
 
@@ -61,17 +64,24 @@ def delivery_status(real, sched):
     return "Late delivery" if real > sched else ("Advance shipping" if real < sched else "Shipping on time")
 
 
-def generate(pool, wh_by_market, start, end, per_market_day, events, seed):
-    """Pure function. pool: {warehouse_id: [historical order dicts]}. Returns the list of new order dicts (no order_id yet)."""
+def generate(pool, wh_by_market, start, end, per_market_day, events, seed, heavy_from=None, heavy_per_market_day=0):
+    """Pure function. pool: {warehouse_id: [historical order dicts]}. Returns the list of new order dicts (no order_id yet).
+    From heavy_from on, each market gets heavy_per_market_day orders a day, and each order's quantity and money are multiplied
+    by a skewed factor (1x to 35x) so that some stock risks are large."""
     rng = random.Random(seed)
     orders, counter, day = [], SIM_ID_BASE, start
+    SCALES, WEIGHTS = [1, 2, 3, 5, 8, 12, 20, 35], [30, 20, 15, 12, 9, 7, 5, 2]
     while day <= end:
+        heavy = heavy_from is not None and day >= heavy_from
+        n = heavy_per_market_day if heavy else per_market_day
+        jitter = max(5, n // 16)
         for market, wid in wh_by_market.items():
             rows = pool.get(wid)
             if not rows:
                 continue
-            for _ in range(max(1, per_market_day + rng.randint(-5, 5))):
+            for _ in range(max(1, n + rng.randint(-jitter, jitter))):
                 b = rng.choice(rows)
+                k = rng.choices(SCALES, WEIGHTS)[0] if heavy else 1
                 real, sched, mode = int(b["days_for_shipping_real"]), int(b["days_for_shipment_scheduled"]), b["shipping_mode"]
                 for ev in events:
                     if ev["market"] == market and ev["start_date"] <= day <= ev["end_date"] and (not ev["shipping_modes"] or mode in ev["shipping_modes"]):
@@ -79,13 +89,14 @@ def generate(pool, wh_by_market, start, end, per_market_day, events, seed):
                         break
                 counter += 1
                 fl = lambda v: float(v) if v is not None else None
+                sc = lambda v: float(v) * k if v is not None else None
                 orders.append({
                     "data_co_order_id": counter, "order_item_id": counter, "distributor_id": b["distributor_id"], "product_id": b["product_id"],
                     "warehouse_id": wid, "order_date": day.isoformat(), "shipping_date": (day + timedelta(days=real)).isoformat(),
                     "days_for_shipping_real": real, "days_for_shipment_scheduled": sched, "late_delivery_risk": 1 if real > sched else 0,
-                    "delivery_status": delivery_status(real, sched), "shipping_mode": mode, "order_item_quantity": b["order_item_quantity"],
-                    "order_item_total": fl(b["order_item_total"]), "benefit_per_order": fl(b["benefit_per_order"]),
-                    "order_profit_per_order": fl(b["order_profit_per_order"]), "profit_ratio": fl(b["profit_ratio"]),
+                    "delivery_status": delivery_status(real, sched), "shipping_mode": mode, "order_item_quantity": int(b["order_item_quantity"]) * k,
+                    "order_item_total": sc(b["order_item_total"]), "benefit_per_order": sc(b["benefit_per_order"]),
+                    "order_profit_per_order": sc(b["order_profit_per_order"]), "profit_ratio": fl(b["profit_ratio"]),
                     "order_status": b["order_status"], "order_region": b["order_region"],
                     "latitude": fl(b["latitude"]), "longitude": fl(b["longitude"])})
         day += timedelta(days=1)
@@ -144,9 +155,11 @@ def remove_previous(sb, start):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", type=date.fromisoformat, default=date(2026, 7, 1))
-    ap.add_argument("--end", type=date.fromisoformat, default=date(2026, 10, 7))
+    ap.add_argument("--end", type=date.fromisoformat, default=date(2026, 10, 9))
     ap.add_argument("--per-market-day", type=int, default=80)
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--heavy-from", type=date.fromisoformat, default=date(2026, 9, 25))
+    ap.add_argument("--heavy-per-market-day", type=int, default=800)
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
@@ -155,7 +168,7 @@ def main():
     sb = get_client()
     wh = {w["market"]: w["warehouse_id"] for w in sb.table("warehouses").select("warehouse_id,market").execute().data}
     pool = load_pool(sb)
-    orders = generate(pool, wh, a.start, a.end, a.per_market_day, EVENTS, a.seed)
+    orders = generate(pool, wh, a.start, a.end, a.per_market_day, EVENTS, a.seed, a.heavy_from, a.heavy_per_market_day)
     late = sum(o["late_delivery_risk"] for o in orders)
     print(f"\nGenerated {len(orders):,} simulated orders, {a.start} to {a.end}, {late / len(orders):.1%} late")
     for ev in EVENTS:
@@ -186,7 +199,7 @@ def main():
     if os.path.exists(CACHE):
         os.remove(CACHE)
         print("Deleted the stale M1 frame cache (it is rebuilt on the next scoring run).")
-    print("\nDone. Next: python pipeline/run_all.py --as-of 2026-09-30 --min-cover 0.2 --max-cover 1.5 --investigate")
+    print("\nDone. Next: python pipeline/run_all.py --as-of 2026-10-09 --min-cover 0.2 --max-cover 3 --investigate --limit 40")
 
 
 if __name__ == "__main__":

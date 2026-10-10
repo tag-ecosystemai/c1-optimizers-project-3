@@ -32,12 +32,21 @@ function delta(now: number, before: number | undefined, fmt: (n: number) => stri
 
 const columns: Column<IncidentListItem>[] = [
   { key: "severity", header: "Severity", sortKey: "severity", cell: (r) => <SeverityBadge severity={r.severity} /> },
-  { key: "order", header: "Order", cell: (r) => <span className="font-medium text-fg">#{r.order_id}</span> },
-  { key: "distributor", header: "Distributor", cell: (r) => r.distributor.name, hideBelow: "md" },
-  { key: "product", header: "Product", cell: (r) => <span className="line-clamp-1 max-w-56">{r.product.name}</span>, hideBelow: "lg" },
-  { key: "market", header: "Market", cell: (r) => r.market, hideBelow: "md" },
-  { key: "delay", header: "Delay", sortKey: "predicted_delay_days", align: "right", cell: (r) => <span className="whitespace-nowrap">{days(r.predicted_delay_days)}</span>, hideBelow: "sm" },
-  { key: "stockout", header: "Stockout", sortKey: "stockout_date", cell: (r) => <span className="whitespace-nowrap">{date(r.stockout_date)}</span>, hideBelow: "lg" },
+  { key: "product", header: "Product", cell: (r) => <span className="line-clamp-2 max-w-64 font-medium text-fg">{r.product.name}</span> },
+  {
+    key: "warehouse",
+    header: "Warehouse",
+    hideBelow: "md",
+    cell: (r) => (
+      <span className="flex flex-col">
+        <span>{r.warehouse.name}</span>
+        <span className="text-xs text-muted">{r.warehouse.market}</span>
+      </span>
+    ),
+  },
+  { key: "orders", header: "Orders", align: "right", hideBelow: "lg", cell: (r) => num(r.orders_affected) },
+  { key: "delay", header: "Max delay", sortKey: "predicted_delay_days", align: "right", cell: (r) => <span className="whitespace-nowrap">{days(r.max_predicted_delay_days)}</span>, hideBelow: "sm" },
+  { key: "stockout", header: "Stockout", sortKey: "stockout_date", cell: (r) => <span className="whitespace-nowrap">{r.stockout_date ? date(r.stockout_date) : "—"}</span>, hideBelow: "lg" },
   { key: "short", header: "Units short", sortKey: "units_short", align: "right", cell: (r) => num(r.units_short), hideBelow: "lg" },
   { key: "money", header: "$ at risk", sortKey: "money_at_risk_usd", align: "right", cell: (r) => (r.money_at_risk_usd === undefined ? "—" : usd(r.money_at_risk_usd)) },
   {
@@ -46,9 +55,16 @@ const columns: Column<IncidentListItem>[] = [
     cell: (r) => (
       <span className="flex flex-col items-start gap-0.5">
         <StatusPill status={r.status} />
-        {r.investigating && <span className="text-[11px] text-muted">Investigating…</span>}
+        {r.investigating && <span className="text-[11px] text-muted">Awaiting analysis</span>}
+        {r.acknowledged_by_warehouse && <span className="text-[11px] text-muted">Warehouse acknowledged</span>}
       </span>
     ),
+  },
+  {
+    key: "view",
+    header: "",
+    align: "right",
+    cell: () => <span className="whitespace-nowrap text-sm text-blue-600">View →</span>,
   },
 ];
 
@@ -100,15 +116,30 @@ export default async function Page({ searchParams }: PageProps<"/ops/watchtower"
       <PageHeader title="Watchtower" description="What needs your attention right now, ranked by dollars at risk. Refreshes every minute." />
 
       <section aria-label="Key numbers" className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <KpiCard label="Open incidents" value={num(summary.open_incidents)} delta={delta(summary.open_incidents, y.open_incidents, num)} />
-        <KpiCard label="$ at risk" value={usd(summary.money_at_risk_usd)} delta={delta(summary.money_at_risk_usd, y.money_at_risk_usd, (n) => usd(n))} />
+        <KpiCard
+          accent="high"
+          label="Open incidents"
+          value={num(summary.open_incidents)}
+          delta={delta(summary.open_incidents, y.open_incidents, num)}
+        />
+        <KpiCard
+          accent="high"
+          label="$ at risk"
+          value={usd(summary.money_at_risk_usd)}
+          delta={delta(summary.money_at_risk_usd, y.money_at_risk_usd, (n) => usd(n))}
+        />
         <KpiCard
           label="Late-risk rate"
           value={percent(summary.late_risk_rate)}
           delta={delta(summary.late_risk_rate, y.late_risk_rate, (n) => `${(n * 100).toFixed(0)} pts`)}
           hint="Orders in flight likely to be late"
         />
-        <KpiCard label="Units short" value={num(summary.units_short)} delta={delta(summary.units_short, y.units_short, num)} />
+        <KpiCard
+          accent="medium"
+          label="Units short"
+          value={num(summary.units_short)}
+          delta={delta(summary.units_short, y.units_short, num)}
+        />
         <KpiCard
           label="Avg predicted delay"
           value={days(summary.avg_predicted_delay_days)}
@@ -116,94 +147,89 @@ export default async function Page({ searchParams }: PageProps<"/ops/watchtower"
         />
       </section>
 
-      <div className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_20rem]">
-        <section aria-labelledby="queue-title" className="min-w-0">
-          <h2 id="queue-title" className="mb-3 text-base text-fg">
-            Incident queue
+      <aside aria-label="Breakdowns" className="mb-6 grid gap-4 md:grid-cols-3 md:items-start">
+        <section aria-labelledby="market-title" className={PANEL}>
+          <h2 id="market-title" className="mb-3 text-base text-fg">
+            $ at risk by market
           </h2>
-          <FilterBar
-            search={{ param: "q", placeholder: "Search order, distributor, product" }}
-            filters={[
-              { param: "market", label: "Market", options: MARKETS.map((m) => ({ value: m, label: m })) },
-              { param: "severity", label: "Severity", options: SEVERITY_OPTIONS },
-              { param: "status", label: "Status", options: INCIDENT_STATUS_OPTIONS },
-              {
-                param: "distributor_id",
-                label: "Distributor",
-                options: network.flatMap((w) => w.distributors.map((d) => ({ value: String(d.id), label: d.name }))),
-              },
-            ]}
-          />
-          <DataTable
-            caption="Incidents ranked by dollars at risk"
-            columns={columns}
-            rows={page.items}
-            rowKey={(r) => r.incident_id}
-            rowHref={(r) => `/ops/incidents/${r.incident_id}`}
-            defaultSort={DEFAULT_SORT}
-            empty={
-              <EmptyState
-                title={filtered ? "No incidents match these filters" : "No incidents"}
-                description={filtered ? "Try a different market, severity or status, or clear the search." : "Nothing is projected to run out. New incidents appear here as orders are scored."}
-              />
-            }
-          />
-          {page.items.length > 0 && <Pagination nextCursor={page.next_cursor} prevCursor={page.prev_cursor} count={page.items.length} total={page.total} />}
+          {summary.by_market.some((m) => m.money_at_risk_usd > 0) ? (
+            <MarketChart data={summary.by_market} />
+          ) : (
+            <EmptyState title="Nothing at risk" description="No open incidents in any market." />
+          )}
         </section>
 
-        {/* Side panels: below 2xl they sit under the queue; at 2xl they stick under the header and scroll on their own. */}
-        <aside
-          aria-label="Breakdowns"
-          className="flex min-w-0 flex-col gap-6 md:max-2xl:grid md:max-2xl:grid-cols-3 md:max-2xl:items-start 2xl:sticky 2xl:top-20 2xl:max-h-[calc(100vh-6rem)] 2xl:self-start 2xl:overflow-y-auto 2xl:overscroll-contain 2xl:pr-1"
-        >
-          <section aria-labelledby="market-title" className={PANEL}>
-            <h2 id="market-title" className="mb-3 text-base text-fg">
-              $ at risk by market
-            </h2>
-            {summary.by_market.some((m) => m.money_at_risk_usd > 0) ? (
-              <MarketChart data={summary.by_market} />
-            ) : (
-              <EmptyState title="Nothing at risk" description="No open incidents in any market." />
-            )}
-          </section>
-
-          <section aria-labelledby="products-title" className={PANEL}>
-            <h2 id="products-title" className="mb-3 text-base text-fg">
-              Top 5 products at risk
-            </h2>
-            {summary.top_products.length ? (
-              <ol className="flex flex-col gap-2.5 text-sm">
-                {summary.top_products.slice(0, 5).map((p, i) => (
-                  <li key={p.product.id} className="flex items-baseline gap-2">
-                    <span className="w-4 shrink-0 text-xs text-muted tabular-nums">{i + 1}</span>
-                    <span className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-fg" title={p.product.name}>
-                        {p.product.name}
-                      </span>
-                      <span className="text-xs text-muted">
-                        {num(p.open_incidents)} open {p.open_incidents === 1 ? "incident" : "incidents"}
-                      </span>
+        <section aria-labelledby="products-title" className={PANEL}>
+          <h2 id="products-title" className="mb-3 text-base text-fg">
+            Top 5 products at risk
+          </h2>
+          {summary.top_products.length ? (
+            <ol className="flex flex-col gap-2.5 text-sm">
+              {summary.top_products.slice(0, 5).map((p, i) => (
+                <li key={p.product.id} className="flex items-baseline gap-2">
+                  <span className="w-4 shrink-0 text-xs text-muted tabular-nums">{i + 1}</span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-fg" title={p.product.name}>
+                      {p.product.name}
                     </span>
-                    <span className="text-fg tabular-nums">{usd(p.money_at_risk_usd)}</span>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <EmptyState title="Nothing at risk" description="No product has an open incident." />
-            )}
-          </section>
+                    <span className="text-xs text-muted">
+                      {num(p.open_incidents)} open {p.open_incidents === 1 ? "incident" : "incidents"}
+                    </span>
+                  </span>
+                  <span className="text-fg tabular-nums">{usd(p.money_at_risk_usd)}</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <EmptyState title="Nothing at risk" description="No product has an open incident." />
+          )}
+        </section>
 
-          <section aria-labelledby="trend-title" className={PANEL}>
-            <h2 id="trend-title" className="mb-1 text-base text-fg">
-              Incidents opened per day
-            </h2>
-            <p className="mb-3 text-xs text-muted">
-              {num(summary.trend.reduce((n, t) => n + t.opened, 0))} in the last {summary.trend.length} days
-            </p>
-            <TrendBars trend={summary.trend} />
-          </section>
-        </aside>
-      </div>
+        <section aria-labelledby="trend-title" className={PANEL}>
+          <h2 id="trend-title" className="mb-1 text-base text-fg">
+            Incidents opened per day
+          </h2>
+          <p className="mb-3 text-xs text-muted">
+            {num(summary.trend.reduce((n, t) => n + t.opened, 0))} in the last {summary.trend.length} days
+          </p>
+          <TrendBars trend={summary.trend} />
+        </section>
+      </aside>
+
+      <section aria-labelledby="queue-title" className="min-w-0">
+        <h2 id="queue-title" className="mb-3 text-base text-fg">
+          Incident queue
+        </h2>
+        <FilterBar
+          search={{ param: "q", placeholder: "Search product" }}
+          filters={[
+            { param: "market", label: "Market", options: MARKETS.map((m) => ({ value: m, label: m })) },
+            { param: "severity", label: "Severity", options: SEVERITY_OPTIONS },
+            { param: "status", label: "Status", options: INCIDENT_STATUS_OPTIONS },
+            {
+              param: "distributor_id",
+              label: "Distributor",
+              options: network.flatMap((w) => w.distributors.map((d) => ({ value: String(d.id), label: d.name }))),
+            },
+          ]}
+        />
+        <DataTable
+          caption="Incidents ranked by dollars at risk. Click a row to open it."
+          columns={columns}
+          rows={page.items}
+          rowKey={(r) => r.incident_id}
+          rowHref={(r) => `/ops/incidents/${r.incident_id}`}
+          defaultSort={DEFAULT_SORT}
+          empty={
+            <EmptyState
+              title={filtered ? "No incidents match these filters" : "No incidents"}
+              description={filtered ? "Try a different market, severity or status, or clear the search." : "Nothing is projected to run out. New incidents appear here as orders are scored."}
+            />
+          }
+        />
+        {page.items.length > 0 && <Pagination nextCursor={page.next_cursor} prevCursor={page.prev_cursor} count={page.items.length} total={page.total} />}
+      </section>
+
     </>
   );
 }

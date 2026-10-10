@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { getOpsNetwork } from "@/lib/data";
 import { num, usd } from "@/lib/format";
@@ -66,7 +67,11 @@ async function Network() {
             <div className="flex flex-wrap items-start justify-between gap-3 p-4">
               <div className="flex min-w-0 flex-col gap-1.5">
                 <p className="text-xs text-muted">{n.warehouse.market}</p>
-                <h2 className="text-base text-fg">{n.warehouse.name}</h2>
+                <h2 className="text-base text-fg">
+                  <Link href={`/ops/warehouses/${n.warehouse.id}`} className="hover:underline">
+                    {n.warehouse.name}
+                  </Link>
+                </h2>
                 <Stats open={n.open_incidents} money={n.money_at_risk_usd} lowCover={n.low_cover_skus} />
               </div>
               <ViewAsButton kind="warehouse" id={n.warehouse.id} name={n.warehouse.name} />
@@ -86,7 +91,10 @@ async function Network() {
                     <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                       <div className="flex min-w-0 flex-col gap-1">
                         <p className="text-sm text-fg">
-                          {d.name} <span className="text-xs text-muted">· {d.segment}</span>
+                          <Link href={`/ops/distributors/${d.id}`} className="hover:underline">
+                            {d.name}
+                          </Link>{" "}
+                          <span className="text-xs text-muted">· {d.segment}</span>
                         </p>
                         <Stats open={d.open_incidents} money={d.money_at_risk_usd} lowCover={d.low_cover_skus} />
                       </div>

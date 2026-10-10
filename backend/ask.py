@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from agent import llm
 from agent.tools import ALL_MODES, get_delay_stats
-from backend.auth import Scope, current_scope, data_client
+from backend.auth import Scope, effective_scope, data_client
 from backend.incidents import get_incident, list_incidents, resolve_as_of
 from backend.views import my_order, preds_for
 
@@ -64,6 +64,13 @@ def _market_of(scope: Scope, arg):
         return sb.table("warehouses").select("market").eq("warehouse_id", scope.warehouse_id).limit(1).execute().data[0]["market"]
     return arg
 
+def incident_source(scope: Scope, iid):
+    href = {"ops": f"/ops/incidents/{iid}", "data": f"/ops/incidents/{iid}", "warehouse": "/warehouse/incidents"}.get(scope.role)
+    return {"type": "incident", "label": f"Incident #{iid}", **({"href": href} if href else {})}
+
+
+def order_source(scope: Scope, oid):
+    return {"type": "order", "label": f"Order #{oid}", **({"href": f"/my/orders/{oid}"} if scope.role == "distributor" else {})}
 
 def run_tool(name, args, scope: Scope, as_of, sources):
     sb = data_client()
@@ -71,14 +78,15 @@ def run_tool(name, args, scope: Scope, as_of, sources):
         if name == "list_incidents":
             r = list_incidents(status=args.get("status"), severity=args.get("severity"), market=None, warehouse_id=None, product_id=None, q=None,
                                distributor_id=None, as_of=None, limit=min(int(args.get("limit") or 10), 20), cursor=None, scope=scope)
-            sources += [{"type": "incident", "id": i["incident_id"]} for i in r["items"]]
+            sources += [incident_source(scope, i["incident_id"]) for i in r["items"]]
             return r
         if name == "get_incident":
             r = get_incident(int(args["incident_id"]), scope)
-            sources.append({"type": "incident", "id": r["incident_id"]})
+            sources.append(incident_source(scope, r["incident_id"]))
             return r
         if name == "get_order":
             oid = int(args["order_id"])
+            sources.append(order_source(scope, oid))
             if scope.role == "distributor":
                 return my_order(oid, scope)
             q = sb.table("orders").select("order_id,distributor_id,product_id,warehouse_id,order_date,shipping_mode,order_item_quantity,order_status,days_for_shipment_scheduled").eq("order_id", oid)
@@ -96,6 +104,7 @@ def run_tool(name, args, scope: Scope, as_of, sources):
             if not wh:
                 return {"error": "Unknown market"}
             mode = args.get("shipping_mode")
+            sources.append({"type": "model", "label": f"Historical delay statistics ({market})"})
             return {"market": market, "stats": get_delay_stats(wh[0]["warehouse_id"], as_of, [mode] if mode in ALL_MODES else None)}
         if name == "search_knowledge":
             from rag.retrieve import knowledge_tool_for              # role is locked in by the factory, never a model argument
@@ -103,7 +112,7 @@ def run_tool(name, args, scope: Scope, as_of, sources):
             hits = res if isinstance(res, list) else [res]
             for h in hits:
                 if isinstance(h, dict) and h.get("doc_code"):
-                    sources.append({"type": "document", "id": f"{h['doc_code']} v{h.get('version')}"})
+                    sources.append({"type": "document", "label": f"{h['doc_code']} v{h.get('version')}"})
         
             try:
                 sb.table("retrieval_logs").insert({"user_id": scope.user_id, "role": scope.role, "query": args["query"][:300], "hits": len(hits)}).execute()
@@ -128,7 +137,7 @@ def sse(ev, data):
 
 
 @router.post("/ask")
-def ask(req: AskRequest, scope: Scope = Depends(current_scope)):
+def ask(req: AskRequest, scope: Scope = Depends(effective_scope)):
     if not llm.available():
         raise HTTPException(503, "Chat model is not configured (set AZURE_OPENAI_CHAT_DEPLOYMENT).")
     q = req.query.strip()
@@ -183,7 +192,14 @@ def ask(req: AskRequest, scope: Scope = Depends(current_scope)):
                                                  "tool_calls": called or None}).execute()
             except Exception:
                 pass
-            yield sse("final", {"message_id": mid, "sources": [dict(t) for t in {tuple(sorted(s.items())) for s in sources}]})
+            
+            seen, uniq = set(), []
+            for s_ in sources:
+                k = (s_["type"], s_["label"])
+                if k not in seen:
+                    seen.add(k)
+                    uniq.append(s_)
+            yield sse("final", {"message_id": mid, "sources": uniq[:8]})
 
         except Exception as e:
             if "content management policy" in str(e) or "content_filter" in str(e):

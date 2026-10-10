@@ -29,7 +29,7 @@ const columns: Column<DecisionLogItem>[] = [
         className="flex flex-col rounded-sm font-medium whitespace-nowrap text-fg hover:underline focus-visible:outline-2 focus-visible:outline-blue-500"
       >
         #{d.incident_id}
-        <span className="text-xs font-normal text-muted">Order #{d.order_id}</span>
+        <span className="text-xs font-normal text-muted">{d.product?.name ?? ""}</span>
       </Link>
     ),
   },

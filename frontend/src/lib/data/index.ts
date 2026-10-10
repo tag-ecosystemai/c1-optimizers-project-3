@@ -7,3 +7,5 @@ export { getMyOverview, listMyOrders, getMyOrder, getMyStock } from "./my";
 export { getWarehouseOverview, listWarehouseInventory } from "./warehouse";
 export { getObservability, getModels, getPipeline, getAgentStats } from "./observability";
 export { authMode } from "./core";
+
+export { getDistributorInfo, getWarehouseInfo, getIncidentGuidance } from "./info";

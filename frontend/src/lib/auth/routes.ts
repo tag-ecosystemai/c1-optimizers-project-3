@@ -33,9 +33,11 @@ export const ROLE_LABEL: Record<Role, string> = {
 
 export const NAV: Record<Role, { label: string; href: string }[]> = {
   ops: [
+    { label: "Info", href: "/ops/info" },
     { label: "Watchtower", href: "/ops/watchtower" },
     { label: "Network", href: "/ops/network" },
     { label: "History", href: "/ops/history" },
+    { label: "Knowledge", href: "/ops/knowledge" },
     { label: "Ask", href: "/ops/ask" },
   ],
   warehouse: [
@@ -52,9 +54,6 @@ export const NAV: Record<Role, { label: string; href: string }[]> = {
   ],
   data: [
     { label: "Hub", href: "/observability" },
-    { label: "Models", href: "/observability/models" },
-    { label: "Pipeline", href: "/observability/pipeline" },
-    { label: "Agent", href: "/observability/agent" },
   ],
 };
 

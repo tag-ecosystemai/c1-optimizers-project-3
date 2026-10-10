@@ -17,10 +17,10 @@ from backend.incidents import router as incidents_router
 from backend.views import router as views_router
 from backend.ask import router as ask_router
 from backend.knowledge import router as knowledge_router
+from backend.jsonutil import NumifyResponse
 
 
-
-app = FastAPI(title="RunOut API")
+app = FastAPI(title="RunOut API", default_response_class=NumifyResponse)
 
 ORIGINS = [o.strip() for o in os.environ.get(
     "FRONTEND_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",") if o.strip()]

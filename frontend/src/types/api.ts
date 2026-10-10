@@ -6,7 +6,7 @@ export type Role = "ops" | "warehouse" | "distributor" | "data";
 export type Market = "Europe" | "USCA" | "LATAM" | "Africa" | "Pacific Asia";
 export type Segment = "Consumer" | "Corporate" | "Home Office";
 export type Severity = "NONE" | "LOW" | "MEDIUM" | "HIGH";
-export type IncidentStatus = "open" | "approved" | "dismissed" | "escalated" | "resolved";
+export type IncidentStatus = "open" | "approved" | "dismissed" | "escalated" | "resolved" | "withdrawn";
 /** What a decision log entry records. */
 export type DecisionAction = "approved" | "dismissed" | "escalated" | "acknowledged";
 /** What the client sends to POST /api/incidents/{id}/decision. */
@@ -67,24 +67,28 @@ export interface LoginResponse {
 
 export interface IncidentListItem {
   incident_id: number;
-  order_id: number;
   severity: Severity;
   status: IncidentStatus;
-  distributor: Ref;
   product: ProductRef;
-  market: Market;
-  predicted_delay_days: number;
-  projected_arrival: ISODate;
-  stockout_date: ISODate;
+  warehouse: { id?: number; name?: string; market: Market };
+  stockout_date: ISODate | null;
+  first_arrival: ISODate | null;
+  days_of_cover: number | null;
+  /** Largest predicted delay among the incident's orders (a distributor sees only their own orders). */
+  max_predicted_delay_days: number | null;
   units_short: number;
+  orders_affected: number;
+  /** Omitted for distributors. */
+  distributors_affected?: number;
   /** Omitted for distributors. */
   money_at_risk_usd?: number;
   created_at: ISODateTime;
   /** True while the agent has not written a probable cause yet. */
   investigating?: boolean;
-  /** True once the owning warehouse has acknowledged it. Omitted for distributors. */
+  /** Omitted for distributors. */
   acknowledged_by_warehouse?: boolean;
 }
+// list response: { items: IncidentListItem[]; next_cursor: string | null; as_of_date: ISODate }
 
 /** `sort` param: a field name, prefixed with `-` for descending. */
 export type IncidentSortKey =
@@ -130,21 +134,24 @@ export interface Evidence {
 
 export interface ShapFactor {
   feature: string;
-  /** Days added (positive) or removed (negative) from the predicted delay. */
   contribution: number;
-  /** Plain-words label, e.g. "Second Class shipping". */
   label?: string;
+  contribution_days?: number;
+  impact?: string;
 }
 
 export interface RecommendedOption {
   option_id: string;
-  type: "expedite" | "transfer" | "split_shipment" | "notify_only";
+  type: "expedite" | "transfer" | "split_shipment" | "priority_handling" | "notify_only";
   title: string;
   description: string;
   cost_usd?: number;
   eta_days?: number;
   units_covered: number;
   recommended: boolean;
+  order_ids?: number[];
+  rationale?: string;
+  cost_exceeds_money_at_risk?: boolean;
 }
 
 /** One entry in an incident's activity log. */
@@ -157,33 +164,64 @@ export interface Decision {
   decided_at: ISODateTime;
 }
 
+export interface IncidentImpact {
+  days_of_cover: number | null;
+  stockout_date: ISODate | null;
+  first_arrival: ISODate | null;
+  gap_days: number | null;
+  units_short: number;
+  /** The next three are omitted for distributors. */
+  stock_on_hand?: number;
+  weekly_demand?: number;
+  money_at_risk_usd?: number;
+}
+
+export interface AffectedOrder {
+  order_id: number;
+  quantity: number | null;
+  projected_arrival: ISODate | null;
+  predicted_delay_days: number | null;
+  units_short: number;
+  /** Omitted for distributors. */
+  distributor?: { id: number; name: string };
+}
+
+export interface IncidentShap {
+  order_id: number;
+  delay_risk_score: number | null;
+  top_features: ShapFactor[];
+  note?: string;
+}
+
+export interface ResponseTargets {
+  warehouse_acknowledges: string;
+  distributor_notified: string;
+  decision: string;
+}
+
+/** One product at one warehouse, with every order and distributor inside it. */
 export interface IncidentDetail {
   incident_id: number;
   status: IncidentStatus;
   severity: Severity;
-  created_at?: ISODateTime;
-  order: {
-    order_id: number;
-    shipping_mode: ShippingMode;
-    shipping_date: ISODate;
-    order_date?: ISODate;
-    order_item_quantity: number;
-    /** Omitted for distributors. */
-    order_item_total?: number;
-  };
-  distributor?: { id: number; name: string; market: Market; segment: Segment };
-  warehouse?: Ref;
+  created_at: ISODateTime;
+  as_of_date: ISODate;
   product: ProductRef;
-  cascade: Cascade;
-  /** null while the agent is still investigating (poll every ~10 s). */
+  warehouse: { id?: number; name?: string; market: Market };
+  impact: IncidentImpact;
+  affected_orders: AffectedOrder[];
+  /** Role-shaped: ops, warehouse or distributor-safe briefing. */
+  briefing_text: string | null;
+  distributors?: { id: number; name: string; orders: number; units_short: number }[];
   probable_cause?: string | null;
   cause_confidence?: number | null;
   evidence?: Evidence[];
-  shap?: ShapFactor[];
   recommended_options?: RecommendedOption[];
-  /** Role-shaped: ops, warehouse or distributor-safe briefing. */
-  briefing_text: string | null;
+  shap?: IncidentShap | null;
   decisions?: Decision[];
+  response_targets?: ResponseTargets | null;
+  acknowledged_by_warehouse?: boolean;
+  investigating?: boolean;
 }
 
 export interface DecisionRequest {
@@ -196,7 +234,10 @@ export interface DecisionRequest {
 export interface DecisionLogItem extends Decision {
   decision_id: number;
   incident_id: number;
-  order_id: number;
+  order_id?: number;
+  severity?: Severity | null;
+  product?: { id: number | null; name: string | null };
+  market?: string | null;
   option_title: string | null;
   /** The incident's current status, i.e. the outcome. */
   outcome: IncidentStatus;
@@ -298,7 +339,7 @@ export interface MyOverview {
     products_at_risk: number;
     nearest_stockout_date: ISODate | null;
   };
-  /** Top at-risk orders (max 5), no dollar fields. */
+  /** Top at-risk products (max 5), no dollar fields. */
   needs_attention: IncidentListItem[];
   recent_activity: { date: ISODate; order_id: number; text: string }[];
 }
@@ -306,7 +347,7 @@ export interface MyOverview {
 export interface MyStockRow {
   product: ProductRef;
   weekly_usage_forecast: number;
-  days_of_cover: number;
+  days_of_cover: number | null;
   stockout_date: ISODate | null;
   severity: Severity;
   /** Weekly order quantity, oldest first (for a sparkline). */
@@ -334,8 +375,8 @@ export interface InventoryRow {
   warehouse: Ref;
   stock_on_hand: number;
   as_of_date: ISODate;
-  weekly_usage: number;
-  days_of_cover: number;
+  weekly_usage: number | null;
+  days_of_cover: number | null;
   stockout_date: ISODate | null;
   severity: Severity;
 }
@@ -369,9 +410,9 @@ export interface ModelRun {
   run_id: string;
   version: string;
   algorithm: string;
-  mae: number;
-  rmse: number;
-  r2: number;
+  mae: number | null;
+  rmse: number | null;
+  r2: number | null;
   trained_at: ISODateTime;
   status: "champion" | "challenger" | "archived" | "failed";
   mlflow_url: string | null;
@@ -384,10 +425,11 @@ export interface ModelSummary {
   target: string;
   champion: ModelRun | null;
   runs: ModelRun[];
+  note?: string | null;
 }
 
 export interface PipelineStage {
-  key: "seed" | "features" | "scoring" | "cascade";
+  key: string;
   name: string;
   status: "ok" | "failed" | "running" | "pending";
   last_run_at: ISODateTime | null;
@@ -414,7 +456,7 @@ export interface AgentStats {
   traces_url: string | null;
   recent: {
     incident_id: number;
-    order_id: number;
+    order_id?: number;
     investigated_at: ISODateTime;
     latency_s: number;
     cost_usd: number;
@@ -432,7 +474,7 @@ export interface AskRequest {
 }
 
 export interface AskSource {
-  type: "incident" | "order" | "inventory" | "model" | "news" | "pipeline";
+  type: "incident" | "order" | "inventory" | "model" | "news" | "pipeline" | "document";
   label: string;
   href?: string;
 }
